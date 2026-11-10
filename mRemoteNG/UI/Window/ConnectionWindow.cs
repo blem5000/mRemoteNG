@@ -232,6 +232,12 @@ namespace mRemoteNG.UI.Window
         private bool _documentHandlersAdded;
         private bool _floatHandlersAdded;
 
+        /// <summary>
+        /// Set as soon as the panel starts closing (after the user confirmed it). Protocol Close()
+        /// events still arrive afterwards on their own threads and must not try to close tabs anymore.
+        /// </summary>
+        private volatile bool _isClosing;
+
         private void Connection_DockStateChanged(object sender, EventArgs e)
         {
             switch (DockState)
@@ -309,12 +315,22 @@ namespace mRemoteNG.UI.Window
                 }
             }
 
+            _isClosing = true;
+
             try
             {
                 foreach (IDockContent dockContent in connDock.Documents.ToArray())
                 {
                     ConnectionTab tabP = (ConnectionTab)dockContent;
                     if (tabP.Tag == null) continue;
+
+                    // Closing a tab makes its protocol run Close() on a background thread, which then
+                    // raises the Closed event again. The whole panel is going away, so this window has
+                    // nothing left to do for that event - detaching it also prevents the late callback
+                    // from touching an already disposed panel.
+                    if (tabP.Tag is InterfaceControl interfaceControl)
+                        interfaceControl.Protocol?.Closed -= Prot_Event_Closed;
+
                     tabP.silentClose = true;
                     tabP.Close();
                 }
@@ -788,7 +804,9 @@ namespace mRemoteNG.UI.Window
                     return;
                 }
 
-                Invoke(new Action(() => Prot_Event_Closed(interfaceControl.Protocol)));
+                if (IsDisposed || Disposing) return;
+
+                Prot_Event_Closed(interfaceControl.Protocol);
                 Runtime.ConnectionInitiator.OpenConnection(interfaceControl.Info, ConnectionInfo.Force.DoNotJump);
             }
             catch (Exception ex)
@@ -825,11 +843,41 @@ namespace mRemoteNG.UI.Window
         public void Prot_Event_Closed(object sender)
         {
             ProtocolBase protocolBase = sender as ProtocolBase;
-            if (!(protocolBase?.InterfaceControl.Parent is ConnectionTab tabPage)) return;
+            if (!(protocolBase?.InterfaceControl?.Parent is ConnectionTab tabPage)) return;
             if (tabPage.Disposing || tabPage.IsDisposed) return;
-            if (IsDisposed || Disposing) return;
+            // the panel is already going away (or has no usable window handle anymore), so the tab
+            // is taken care of by Connection_FormClosing and must not be touched from here
+            if (_isClosing || IsDisposed || Disposing || !IsHandleCreated) return;
             tabPage.protocolClose = true;
-            Invoke(new Action(() => tabPage.Close()));
+
+            // ProtocolBase.Close() raises the Closed event on its own background thread, so the tab
+            // always has to be closed on the UI thread. Never use Invoke() here: CloseBG runs while
+            // the panel may be closing and a synchronous Invoke() on a disposed/disposing handle
+            // throws ObjectDisposedException("ConnectionWindow") and kills the whole application.
+            try
+            {
+                Control marshalTarget = tabPage.IsHandleCreated ? tabPage : (IsHandleCreated ? this : null);
+                if (marshalTarget == null) return;
+
+                if (marshalTarget.InvokeRequired)
+                    marshalTarget.BeginInvoke(new Action(() => CloseTabSafely(tabPage)));
+                else
+                    CloseTabSafely(tabPage);
+            }
+            catch (ObjectDisposedException)
+            {
+                // the window/tab disappeared between the checks above and the marshal attempt
+            }
+            catch (InvalidOperationException)
+            {
+                // no window handle available anymore - nothing left to close
+            }
+        }
+
+        private static void CloseTabSafely(ConnectionTab tabPage)
+        {
+            if (tabPage.Disposing || tabPage.IsDisposed) return;
+            tabPage.Close();
         }
 
         #endregion

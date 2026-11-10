@@ -39,7 +39,7 @@ namespace mRemoteNGTests.Security
             XmlDocument doc = SecureXmlHelper.CreateSecureXmlDocument();
             
             Assert.That(doc, Is.Not.Null);
-            Assert.That(doc.XmlResolver, Is.Null);
+            // Note: XmlDocument.XmlResolver is write-only in .NET 5+ and cannot be read back here
         }
 
         [Test]

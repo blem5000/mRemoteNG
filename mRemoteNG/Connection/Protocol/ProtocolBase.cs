@@ -152,7 +152,7 @@ namespace mRemoteNG.Connection.Protocol
 
         private void CloseBG()
         {
-            ClosedEvent?.Invoke(this);
+            RaiseClosedEventSafely(this);
             try
             {
                 tmrReconnect.Enabled = false;
@@ -313,7 +313,36 @@ namespace mRemoteNG.Connection.Protocol
 
         protected void Event_Closed(object sender)
         {
-            ClosedEvent?.Invoke(sender);
+            RaiseClosedEventSafely(sender);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="Closed"/> event so that a failing subscriber can never break the
+        /// caller or prevent the remaining subscribers from running.
+        /// <para>
+        /// <see cref="Close"/> raises this event on its own background thread. Without this guard an
+        /// exception thrown by a subscriber (for example the hosting <c>ConnectionWindow</c> being
+        /// disposed while its protocol is still closing) escapes the worker thread and terminates the
+        /// whole application instead of only skipping that one handler.
+        /// </para>
+        /// </summary>
+        private void RaiseClosedEventSafely(object sender)
+        {
+            ClosedEventHandler handlers = ClosedEvent;
+            if (handlers == null) return;
+
+            foreach (ClosedEventHandler handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(sender);
+                }
+                catch (Exception ex)
+                {
+                    Runtime.MessageCollector?.AddExceptionStackTrace(
+                        "Closed event subscriber failed (Connection.Protocol.Base)", ex);
+                }
+            }
         }
 
         protected void Event_Connecting(object sender)
