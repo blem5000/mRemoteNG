@@ -7,6 +7,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows10.0.26100.0</TargetFramework>
+    <!-- Allow the framework-dependent build to run on machines that only have a newer .NET runtime installed -->
+    <RollForward>LatestMajor</RollForward>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Icons\mRemoteNG.ico</ApplicationIcon>
     <Version>1.78.2-dev</Version>
