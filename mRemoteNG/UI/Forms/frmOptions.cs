@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows.Forms;
 using mRemoteNG.Themes;
 using System.Configuration;
+using System.Drawing;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
 using System.Runtime.Versioning;
@@ -76,8 +77,8 @@ namespace mRemoteNG.UI.Forms
             btnOK.Text = Language._Ok;
             btnCancel.Text = Language._Cancel;
             btnApply.Text = Language.Apply;
-            //ApplyTheme();
-            //ThemeManager.getInstance().ThemeChanged += ApplyTheme;
+            ApplyTheme();
+            ThemeManager.getInstance().ThemeChanged += ApplyTheme;
             lstOptionPages.SelectedIndexChanged += LstOptionPages_SelectedIndexChanged;
             lstOptionPages.SelectedIndex = 0;
             
@@ -101,9 +102,30 @@ namespace mRemoteNG.UI.Forms
 
         private void ApplyTheme()
         {
-            if (!ThemeManager.getInstance().ActiveAndExtended) return;
-            BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
-            ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
+            ThemeManager themeManager = ThemeManager.getInstance();
+            if (!themeManager.ActiveAndExtended) return;
+
+            Color background = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            Color foreground = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
+
+            BackColor = background;
+            ForeColor = foreground;
+
+            // The button bar, the page host and the splitters used to keep the system (light) colors,
+            // which left a bright strip at the bottom of the dialog when a dark theme was active.
+            pnlBottom.BackColor = background;
+            pnlBottom.ForeColor = foreground;
+            pnlMain.BackColor = background;
+            pnlMain.ForeColor = foreground;
+
+            // Splitter always paints its own system-colored border when BorderStyle is FixedSingle,
+            // so paint the 1px separator with a theme color instead.
+            Color separator = themeManager.ActiveTheme.ExtendedPalette.getColor("List_Item_Border");
+            splitter1.BorderStyle = BorderStyle.None;
+            splitter1.BackColor = separator;
+            splitter2.BackColor = separator;
+
+            Invalidate(true);
         }
 
 #if false
