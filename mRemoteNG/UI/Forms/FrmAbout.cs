@@ -44,6 +44,7 @@ namespace mRemoteNG.UI.Forms
         private void ApplyTheme()
         {
             if (!ThemeManager.getInstance().ThemingActive) return;
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
             if (!ThemeManager.getInstance().ActiveAndExtended) return;
             pnlBottom.BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
             pnlBottom.ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");

@@ -10,6 +10,7 @@ using mRemoteNG.Messages;
 using mRemoteNG.Properties;
 using WeifenLuo.WinFormsUI.Docking;
 using System.Runtime.Versioning;
+using System.Windows.Forms;
 
 namespace mRemoteNG.Themes
 {
@@ -313,6 +314,48 @@ namespace mRemoteNG.Themes
         public bool ActiveAndExtended => ThemingActive && ActiveTheme.IsExtended;
 
         public int ThemesCount => themes.Count;
+
+        #endregion
+
+        #region Window chrome
+
+        /// <summary>
+        /// <c>true</c> when the active theme is a dark one, based on its dialog background color.
+        /// </summary>
+        public bool IsActiveThemeDark
+        {
+            get
+            {
+                ExtendedColorPalette palette = ActiveTheme?.ExtendedPalette;
+                if (palette == null) return false;
+                return palette.getColor("Dialog_Background").GetBrightness() < 0.5f;
+            }
+        }
+
+        /// <summary>
+        /// Paints the native title bar of <paramref name="form"/> in the color scheme of the active
+        /// theme. The caption is drawn by Windows, so WinForms theming alone leaves it light even in
+        /// dark themes; this switches the window to immersive dark mode instead.
+        /// If the window handle does not exist yet, the title bar is updated as soon as it is created.
+        /// </summary>
+        public void ApplyThemeToTitleBar(Form form)
+        {
+            if (form == null || form.IsDisposed) return;
+
+            if (!form.IsHandleCreated)
+            {
+                void OnHandleCreated(object sender, EventArgs e)
+                {
+                    form.HandleCreated -= OnHandleCreated;
+                    ApplyThemeToTitleBar(form);
+                }
+
+                form.HandleCreated += OnHandleCreated;
+                return;
+            }
+
+            NativeMethods.UseImmersiveDarkMode(form.Handle, IsActiveThemeDark);
+        }
 
         #endregion
     }

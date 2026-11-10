@@ -340,6 +340,8 @@ namespace mRemoteNG.UI.Forms
         //Theming support
         private void ApplyTheme()
         {
+            _themeManager.ApplyThemeToTitleBar(this);
+
             if (!_themeManager.ThemingActive)
             {
                 pnlDock.Theme = _themeManager.DefaultTheme.Theme;

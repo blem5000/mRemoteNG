@@ -367,9 +367,11 @@ namespace mRemoteNG.UI.TaskDialog
 
         private void ApplyTheme()
         {
-            if (!ThemeManager.getInstance().ActiveAndExtended) return;
+            ThemeManager themeManager = ThemeManager.getInstance();
+            themeManager.ApplyThemeToTitleBar(this);
+            if (!themeManager.ActiveAndExtended) return;
 
-            pnlButtons.BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            pnlButtons.BackColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
             pnlButtons.ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
             panel2.BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
             panel2.ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");

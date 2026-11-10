@@ -115,6 +115,7 @@ namespace mRemoteNG.UI.Forms
 
         private void ApplyTheme()
         {
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
             if (!ThemeManager.getInstance().ActiveAndExtended)
                 return;
 

@@ -116,6 +116,45 @@ namespace mRemoteNG.App
         [DllImport("kernel32", SetLastError = true)]
         internal static extern bool CloseHandle(IntPtr handle);
 
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int attributeValue, int attributeSize);
+
+        /// <summary>
+        /// Window attribute used to draw a dark (or light) native title bar. It was introduced with
+        /// Windows 10 1903 and the attribute number changed once (19 -> 20) before 20H1 shipped.
+        /// </summary>
+        private const int DwmwaUseImmersiveDarkMode = 20;
+        private const int DwmwaUseImmersiveDarkModeLegacy = 19;
+
+        /// <summary>
+        /// Lets Windows draw the title bar of the given window in dark or light mode. Everything else
+        /// (caption text, buttons) is painted by DWM, so it cannot be themed from WinForms directly.
+        /// </summary>
+        /// <returns><c>true</c> when the requested mode was applied.</returns>
+        internal static bool UseImmersiveDarkMode(IntPtr handle, bool enabled)
+        {
+            if (handle == IntPtr.Zero) return false;
+
+            int value = enabled ? 1 : 0;
+            try
+            {
+                int result = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref value, sizeof(int));
+                if (result != 0)
+                    // Windows 10 1809 - 1903 used another attribute id
+                    result = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkModeLegacy, ref value, sizeof(int));
+                return result == 0;
+            }
+            catch (DllNotFoundException)
+            {
+                // dwmapi.dll is not available (Windows versions before Vista)
+                return false;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return false;
+            }
+        }
+
         #endregion
 
         #region Structures

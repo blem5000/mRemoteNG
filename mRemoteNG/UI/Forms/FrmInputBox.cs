@@ -30,6 +30,7 @@ namespace mRemoteNG.UI.Forms
         private void ApplyTheme()
         {
             ThemeManager _themeManager = ThemeManager.getInstance();
+            _themeManager.ApplyThemeToTitleBar(this);
             if (!_themeManager.ActiveAndExtended) return;
             BackColor = _themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
             ForeColor = _themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
