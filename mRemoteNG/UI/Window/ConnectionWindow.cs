@@ -173,8 +173,12 @@ namespace mRemoteNG.UI.Window
             {
                 foreach (IDockContent dockContent in connDock.DocumentsToArray())
                 {
-                    ConnectionTab tab = (ConnectionTab)dockContent;
-                    controlList.Add((InterfaceControl)tab.Tag);
+                    if (dockContent is not ConnectionTab tab) continue;
+
+                    // Tag holds the ConnectionInfo until the protocol attaches its InterfaceControl.
+                    // Such a tab is still connecting or failed to connect: nothing to close or reconnect.
+                    if (tab.Tag is InterfaceControl interfaceControl)
+                        controlList.Add(interfaceControl);
                 }
 
                 foreach (InterfaceControl iControl in controlList)
@@ -316,6 +320,11 @@ namespace mRemoteNG.UI.Window
             }
 
             _isClosing = true;
+
+            // Panels come and go with every connection; the ThemeManager keeps a strong
+            // reference to its subscribers, so a panel that does not detach itself here is
+            // never collected and keeps getting theme callbacks after being disposed.
+            ThemeManager.getInstance().ThemeChanged -= ApplyTheme;
 
             try
             {

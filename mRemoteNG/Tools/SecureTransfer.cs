@@ -59,7 +59,10 @@ namespace mRemoteNG.Tools
         {
             if (Protocol == SSHTransferProtocol.SCP)
             {
-                ScpClt = new ScpClient(Host, Port, User, Password);
+                // Remote scp paths are handed to the remote shell, so they have to be quoted.
+                // SSH.NET 2026 marks the unquoted convenience constructors obsolete
+                // (GHSA-mggc-4xg6-vcxf: command injection through unescaped paths).
+                ScpClt = new ScpClient(Host, Port, User, Password, RemotePathTransformation.ShellQuote);
                 ScpClt.Connect();
             }
 

@@ -407,6 +407,14 @@ namespace mRemoteNG.Connection
             try
             {
                 ProtocolBase prot = (ProtocolBase)sender;
+
+                // The protocol is finished: stop holding on to it (the initiator lives for the
+                // whole session, so any handler left attached keeps the closed protocol alive).
+                prot.Disconnected -= Prot_Event_Disconnected;
+                prot.Connected -= Prot_Event_Connected;
+                prot.Closed -= Prot_Event_Closed;
+                prot.ErrorOccured -= Prot_Event_ErrorOccured;
+
                 Runtime.MessageCollector.AddMessage(MessageClass.InformationMsg, Language.ConnenctionCloseEvent, true);
                 string connDetail;
                 if (prot.InterfaceControl.OriginalInfo.Hostname == "" && prot.InterfaceControl.Info.Protocol == ProtocolType.IntApp)

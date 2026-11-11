@@ -104,8 +104,33 @@ namespace mRemoteNG.UI.Window
         private void UltraVNCSC_Load(object sender, System.EventArgs e)
         {
             ApplyLanguage();
+            ApplyTheme();
+            Themes.ThemeManager.getInstance().ThemeChanged += ApplyTheme;
 
             StartListening();
+        }
+
+        /// <summary>
+        /// The UltraVNC window is the only dock window without theming, so with a dark theme
+        /// it used to flash a white client area and a light toolbar.
+        /// </summary>
+        private new void ApplyTheme()
+        {
+            Themes.ThemeManager themeManager = Themes.ThemeManager.getInstance();
+            themeManager.ApplyThemeToTitleBar(this);
+            if (!themeManager.ActiveAndExtended) return;
+
+            base.ApplyTheme();
+            pnlContainer.BackColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            pnlContainer.ForeColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
+            tsMain.BackColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            tsMain.ForeColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
+        }
+
+        protected override void OnFormClosed(System.Windows.Forms.FormClosedEventArgs e)
+        {
+            Themes.ThemeManager.getInstance().ThemeChanged -= ApplyTheme;
+            base.OnFormClosed(e);
         }
 
         private void ApplyLanguage()

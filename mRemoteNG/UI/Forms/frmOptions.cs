@@ -333,6 +333,9 @@ namespace mRemoteNG.UI.Forms
 
         private void FrmOptions_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // Note: this dialog is created once per session and embedded in OptionsWindow, and
+            // every close is cancelled here (the form is only hidden), so it must stay subscribed
+            // to ThemeChanged - a single instance is not a leak.
             // Check if any page has unsaved changes
             bool hasChanges = _optionPages.Any(page => page.HasChanges);
             

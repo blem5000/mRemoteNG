@@ -65,18 +65,18 @@ namespace mRemoteNG.UI.Tabs
                         }
                         else
                         {
-                            ((InterfaceControl)Tag)?.Protocol.Close();
+                            CloseAttachedProtocol();
                         }
                     }
                     else
                     {
                         // close without the confirmation prompt...
-                        ((InterfaceControl)Tag)?.Protocol.Close();
+                        CloseAttachedProtocol();
                     }
                 }
                 else
                 {
-                    ((InterfaceControl)Tag)?.Protocol.Close();
+                    CloseAttachedProtocol();
                 }
             }
 
@@ -85,6 +85,17 @@ namespace mRemoteNG.UI.Tabs
 
 
         #region HelperFunctions  
+
+        /// <summary>
+        /// Closes the protocol attached to this tab, if there is one.
+        /// While a connection is still being established the tag holds the
+        /// <see cref="ConnectionInfo"/> instead of an <see cref="InterfaceControl"/>,
+        /// so closing such a tab must not blow up on the cast.
+        /// </summary>
+        private void CloseAttachedProtocol()
+        {
+            (Tag as InterfaceControl)?.Protocol.Close();
+        }
 
         public void RefreshInterfaceController()
         {

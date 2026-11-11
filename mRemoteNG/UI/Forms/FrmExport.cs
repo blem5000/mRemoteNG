@@ -157,6 +157,14 @@ namespace mRemoteNG.UI.Forms
             ApplyLanguage();
         }
 
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            // the ThemeManager lives for the whole session, so a dialog that does not detach
+            // here would be kept alive (and re-themed) after it has been closed
+            ThemeManager.getInstance().ThemeChanged -= ApplyTheme;
+            base.OnFormClosed(e);
+        }
+
         private void txtFileName_TextChanged(object sender, EventArgs e)
         {
             btnOK.Enabled = !string.IsNullOrEmpty(txtFileName.Text);

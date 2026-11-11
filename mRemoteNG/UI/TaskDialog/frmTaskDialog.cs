@@ -365,6 +365,14 @@ namespace mRemoteNG.UI.TaskDialog
             ApplyTheme();
         }
 
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            // a task dialog is created per use, so it must stop listening to the
+            // session-wide ThemeManager when it is done
+            ThemeManager.getInstance().ThemeChanged -= ApplyTheme;
+            base.OnFormClosed(e);
+        }
+
         private void ApplyTheme()
         {
             ThemeManager themeManager = ThemeManager.getInstance();
