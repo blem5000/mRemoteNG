@@ -18,13 +18,19 @@ namespace mRemoteNG.UI.Forms
     [SupportedOSPlatform("windows")]
     public partial class FrmOptions : Form
     {
-        private int _currentIndex = 0;
         private readonly List<OptionsPage> _optionPages = [];
         private string _pageName;
         private readonly DisplayProperties _display = new();
         private readonly List<string> _optionPageObjectNames;
         private bool _isLoading = true;
         private bool _isInitialized = false; // Add this field to the FrmOptions class
+
+        /// <summary>
+        /// Raised when the user confirms (OK) or aborts (Cancel) the dialog.
+        /// The form does not close itself: it is embedded in <see cref="Window.OptionsWindow"/>,
+        /// which decides how to close the hosting window.
+        /// </summary>
+        public event EventHandler? CloseRequested;
 
         public FrmOptions() : this(Language.StartupExit)
         {
@@ -144,22 +150,22 @@ namespace mRemoteNG.UI.Forms
             lstOptionPages.RowHeight = _display.ScaleHeight(lstOptionPages.RowHeight);
             lstOptionPages.AllColumns.First().ImageGetter = ImageGetter;
 
-            InitOptionsPage(_optionPageObjectNames[_currentIndex++]);
-            Application.Idle += new EventHandler(Application_Idle);
-        }
+            // All pages are created synchronously. Previously only the first page was
+            // created here and the rest were deferred to Application.Idle, which never
+            // runs in tests and made the window appear empty on the first open.
+            lstOptionPages.BeginUpdate();
+            try
+            {
+                foreach (string pageName in _optionPageObjectNames)
+                    InitOptionsPage(pageName);
+            }
+            finally
+            {
+                lstOptionPages.EndUpdate();
+            }
 
-        private void Application_Idle(object sender, EventArgs e)
-        {
-            if (_currentIndex >= _optionPageObjectNames.Count)
-            {
-                Application.Idle -= new EventHandler(Application_Idle);
-                // All pages loaded, now start tracking changes
-                _isLoading = false;
-            }
-            else
-            {
-                InitOptionsPage(_optionPageObjectNames[_currentIndex++]);
-            }
+            // All pages loaded, now start tracking changes
+            _isLoading = false;
         }
 
         private void InitOptionsPage(string pageName)
@@ -293,7 +299,7 @@ namespace mRemoteNG.UI.Forms
             SaveOptions();
             // Clear change flags after saving
             ClearChangeFlags();
-            this.Visible = false;
+            CloseRequested?.Invoke(this, EventArgs.Empty);
         }
 
         private void BtnApply_Click(object sender, EventArgs e)
@@ -326,9 +332,35 @@ namespace mRemoteNG.UI.Forms
 
         private void BtnCancel_Click(object sender, EventArgs e)
         {
-            // When Cancel is clicked, we don't check for changes
-            // The user explicitly wants to cancel
-            this.Visible = false;
+            // Cancel discards pending edits instead of silently keeping them.
+            ReloadAllSettings();
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Returns true if any options page has been modified.
+        /// </summary>
+        internal bool HasUnsavedChanges() => _optionPages.Any(page => page.HasChanges);
+
+        /// <summary>
+        /// Reloads all pages from the stored settings, discarding any pending control edits.
+        /// </summary>
+        internal void ReloadAllSettings()
+        {
+            // Suppress change tracking while the control values are restored programmatically
+            bool wasLoading = _isLoading;
+            _isLoading = true;
+            try
+            {
+                foreach (OptionsPage page in _optionPages)
+                    page.LoadSettings();
+            }
+            finally
+            {
+                _isLoading = wasLoading;
+            }
+
+            ClearChangeFlags();
         }
 
         private void FrmOptions_FormClosing(object sender, FormClosingEventArgs e)

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.Versioning;
 using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
+using mRemoteNG.Resources.Language;
 using mRemoteNG.Tree;
 
 namespace mRemoteNG.Container
@@ -209,7 +210,7 @@ namespace mRemoteNG.Container
 
         private void SetDefaults()
         {
-            Name = "New Folder";
+            Name = Language.NewFolder;
             IsExpanded = true;
         }
 

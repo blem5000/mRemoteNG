@@ -572,6 +572,24 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                     connectionRecord.Inheritance.Panel = value;
             }
 
+            if (headers.Contains("InheritColor"))
+            {
+                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritColor")], out bool value))
+                    connectionRecord.Inheritance.Color = value;
+            }
+
+            if (headers.Contains("InheritTabColor"))
+            {
+                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritTabColor")], out bool value))
+                    connectionRecord.Inheritance.TabColor = value;
+            }
+
+            if (headers.Contains("InheritConnectionFrameColor"))
+            {
+                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritConnectionFrameColor")], out bool value))
+                    connectionRecord.Inheritance.ConnectionFrameColor = value;
+            }
+
             if (headers.Contains("InheritPassword"))
             {
                 if (bool.TryParse(connectionCsv[headers.IndexOf("InheritPassword")], out bool value))

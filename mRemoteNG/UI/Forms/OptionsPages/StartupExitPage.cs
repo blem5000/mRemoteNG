@@ -55,6 +55,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             RegistryLoader.RegistrySettings.TryGetValue(settingsType, out var settings);
             pageRegSettingsInstance = settings as OptRegistryStartupExitPage;
 
+            // If registry settings don't exist, create a default instance to prevent null reference exceptions
+            if (pageRegSettingsInstance == null)
+                pageRegSettingsInstance = new OptRegistryStartupExitPage();
+
             RegistryLoader.Cleanup(settingsType);
 
             // Disable Controls depending on the value ("None", "Minimized", or "FullScreen")

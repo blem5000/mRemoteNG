@@ -37,11 +37,9 @@ namespace mRemoteNGTests.Tools
 
             // Assert
             // The arguments should contain the password with the equals sign
-            // It may be escaped (e.g., Z-3^=Wv99/Aq), but should not be split
-            Assert.That(process.StartInfo.Arguments, Does.Contain("Z-3"));
-            Assert.That(process.StartInfo.Arguments, Does.Contain("Wv99/Aq"));
-            // The equals sign should be present (possibly escaped as ^=)
-            Assert.That(process.StartInfo.Arguments, Does.Match("Z-3.=Wv99/Aq"));
+            // as a single, unescaped argument
+            var arguments = string.Join(" ", process.StartInfo.ArgumentList);
+            Assert.That(arguments, Does.Contain("Z-3=Wv99/Aq"));
         }
 
         [Test]
@@ -71,9 +69,9 @@ namespace mRemoteNGTests.Tools
             setProcessPropertiesMethod?.Invoke(externalTool, new object[] { process, connectionInfo });
 
             // Assert
-            // The password should be present in the arguments (possibly escaped)
-            Assert.That(process.StartInfo.Arguments, Does.Contain("P@ss"));
-            Assert.That(process.StartInfo.Arguments, Does.Contain("W0rd"));
+            // The password should be present in the arguments as a single argument
+            var arguments = string.Join(" ", process.StartInfo.ArgumentList);
+            Assert.That(arguments, Does.Contain("P@ss=W0rd!"));
         }
 
         [Test]
@@ -104,12 +102,11 @@ namespace mRemoteNGTests.Tools
             setProcessPropertiesMethod?.Invoke(externalTool, new object[] { process, connectionInfo });
 
             // Assert
-            var arguments = process.StartInfo.Arguments;
-            Assert.That(arguments, Does.Contain("myhost.com"));
-            Assert.That(arguments, Does.Contain("8080"));
-            Assert.That(arguments, Does.Contain("admin"));
-            Assert.That(arguments, Does.Contain("TestPass"));
-            Assert.That(arguments, Does.Contain("123"));
+            var arguments = string.Join(" ", process.StartInfo.ArgumentList);
+            Assert.That(arguments, Does.Contain("--host myhost.com"));
+            Assert.That(arguments, Does.Contain("--port 8080"));
+            Assert.That(arguments, Does.Contain("--user admin"));
+            Assert.That(arguments, Does.Contain("--pass TestPass=123"));
         }
     }
 }

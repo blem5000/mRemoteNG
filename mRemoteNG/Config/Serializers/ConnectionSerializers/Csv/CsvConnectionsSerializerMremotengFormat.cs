@@ -60,14 +60,14 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
 
             sb.Append("Hostname;Port;VmId;Protocol;SSHTunnelConnectionName;OpeningCommand;SSHOptions;PuttySession;ConnectToConsole;UseCredSsp;UseRestrictedAdmin;UseRCG;UseVmId;UseEnhancedMode;RenderingEngine;RDPAuthenticationLevel;" +
                       "LoadBalanceInfo;Colors;Resolution;AutomaticResize;DisplayWallpaper;DisplayThemes;EnableFontSmoothing;EnableDesktopComposition;DisableFullWindowDrag;DisableMenuAnimations;DisableCursorShadow;DisableCursorBlinking;" +
-                      "CacheBitmaps;RedirectDiskDrives;RedirectDiskDrivesCustomRedirectPorts;RedirectPrinters;RedirectClipboard;RedirectSmartCards;RedirectSound;RedirectKeys;" +
+                      "CacheBitmaps;RedirectDiskDrives;RedirectDiskDrivesCustom;RedirectPorts;RedirectPrinters;RedirectClipboard;RedirectSmartCards;RedirectSound;RedirectKeys;" +
                       "PreExtApp;PostExtApp;MacAddress;UserField;EnvironmentTags;ExtApp;Favorite;VNCCompression;VNCEncoding;VNCAuthMode;VNCProxyType;VNCProxyIP;" +
                       "VNCProxyPort;VNCProxyUsername;VNCProxyPassword;VNCColors;VNCSmartSizeMode;VNCViewOnly;RDGatewayUsageMethod;RDGatewayHostname;" +
                       "RDGatewayUseConnectionCredentials;RDGatewayUsername;RDGatewayPassword;RDGatewayDomain;RDGatewayExternalCredentialProvider;RDGatewayUserViaAPI;RedirectAudioCapture;RdpVersion;RDPStartProgram;RDPStartProgramWorkDir;UserViaAPI;EC2InstanceId;EC2Region;ExternalCredentialProvider;ExternalAddressProvider;");
 
             if (_saveFilter.SaveInheritance)
                 sb.Append("InheritCacheBitmaps;InheritColors;InheritDescription;InheritDisplayThemes;InheritDisplayWallpaper;" +
-                          "InheritEnableFontSmoothing;InheritEnableDesktopComposition;InheritDisableFullWindowDrag;InheritDisableMenuAnimations;InheritDisableCursorShadow;InheritDisableCursorBlinking;InheritDomain;InheritIcon;InheritPanel;InheritTabColor;InheritConnectionFrameColor;InheritPassword;InheritPort;" +
+                          "InheritEnableFontSmoothing;InheritEnableDesktopComposition;InheritDisableFullWindowDrag;InheritDisableMenuAnimations;InheritDisableCursorShadow;InheritDisableCursorBlinking;InheritDomain;InheritIcon;InheritPanel;InheritColor;InheritTabColor;InheritConnectionFrameColor;InheritPassword;InheritPort;" +
                           "InheritProtocol;InheritSSHTunnelConnectionName;InheritOpeningCommand;InheritSSHOptions;InheritPuttySession;InheritRedirectDiskDrives;InheritRedirectDiskDrivesCustom;InheritRedirectKeys;InheritRedirectPorts;InheritRedirectPrinters;" +
                           "InheritRedirectClipboard;InheritRedirectSmartCards;InheritRedirectSound;InheritResolution;InheritAutomaticResize;" +
                           "InheritUseConsoleSession;InheritUseCredSsp;InheritUseRestrictedAdmin;InheritUseRCG;InheritUseVmId;InheritUseEnhancedMode;InheritVmId;InheritRenderingEngine;InheritUsername;" +
@@ -212,6 +212,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
               .Append(FormatForCsv(con.Inheritance.Domain))
               .Append(FormatForCsv(con.Inheritance.Icon))
               .Append(FormatForCsv(con.Inheritance.Panel))
+              .Append(FormatForCsv(con.Inheritance.Color))
               .Append(FormatForCsv(con.Inheritance.TabColor))
               .Append(FormatForCsv(con.Inheritance.ConnectionFrameColor))
               .Append(FormatForCsv(con.Inheritance.Password))

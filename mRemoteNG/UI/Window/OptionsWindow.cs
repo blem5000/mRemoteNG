@@ -67,19 +67,25 @@ namespace mRemoteNG.UI.Window
                 _optionsForm.TopLevel = false;
                 _optionsForm.FormBorderStyle = FormBorderStyle.None;
                 _optionsForm.Dock = DockStyle.Fill;
-                _optionsForm.VisibleChanged += OptionsForm_VisibleChanged;
+                _optionsForm.CloseRequested -= OptionsForm_CloseRequested;
+                _optionsForm.CloseRequested += OptionsForm_CloseRequested;
                 Controls.Add(_optionsForm);
             }
             _optionsForm.Show();
         }
 
-        private void OptionsForm_VisibleChanged(object sender, EventArgs e)
+        private void OptionsForm_CloseRequested(object sender, EventArgs e)
         {
-            // When the embedded FrmOptions is hidden (OK/Cancel clicked), close this window
-            if (_optionsForm != null && !_optionsForm.Visible)
-            {
-                this.Close();
-            }
+            // The embedded options form asks its host to close the window on OK/Cancel
+            Close();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && _optionsForm != null)
+                _optionsForm.CloseRequested -= OptionsForm_CloseRequested;
+
+            base.Dispose(disposing);
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

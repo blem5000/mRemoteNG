@@ -89,6 +89,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             RegistryLoader.RegistrySettings.TryGetValue(settingsType, out var settings);
             pageRegSettingsInstance = settings as OptRegistryCredentialsPage;
 
+            // If registry settings don't exist, create a default instance to prevent null reference exceptions
+            if (pageRegSettingsInstance == null)
+                pageRegSettingsInstance = new OptRegistryCredentialsPage();
+
             RegistryLoader.Cleanup(settingsType);
 
             // Show registry settings info if any common setting is used.

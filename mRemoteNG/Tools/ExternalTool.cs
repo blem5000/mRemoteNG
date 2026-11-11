@@ -154,15 +154,74 @@ namespace mRemoteNG.Tools
         private void SetProcessProperties(Process process, ConnectionInfo startConnectionInfo)
         {
             ExternalToolArgumentParser argParser = new(startConnectionInfo);
-            process.StartInfo.UseShellExecute = true;
+
+            // The "runas" verb requires UseShellExecute = true. ArgumentList is not
+            // supported in that mode, so elevation falls back to the Arguments string.
+            process.StartInfo.UseShellExecute = RunElevated;
             process.StartInfo.FileName = argParser.ParseArguments(FileName);
-            var parsedArgs = argParser.ParseArguments(Arguments).Split(' ');
-            foreach (var arg in parsedArgs)
+
+            if (RunElevated)
             {
-                process.StartInfo.ArgumentList.Add(arg);
+                process.StartInfo.Arguments = argParser.ParseArguments(Arguments);
+                process.StartInfo.Verb = "runas";
             }
+            else
+            {
+                foreach (var arg in SplitCommandLineArguments(argParser.ParseArguments(Arguments, escapeForShell: false)))
+                {
+                    process.StartInfo.ArgumentList.Add(arg);
+                }
+            }
+
             if (WorkingDir != "") process.StartInfo.WorkingDirectory = argParser.ParseArguments(WorkingDir);
-            if (RunElevated) process.StartInfo.Verb = "runas";
+        }
+
+        /// <summary>
+        /// Splits a command line into arguments, respecting double quotes.
+        /// </summary>
+        private static IEnumerable<string> SplitCommandLineArguments(string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments))
+                yield break;
+
+            bool inQuotes = false;
+            int startIndex = 0;
+
+            for (int i = 0; i < arguments.Length; i++)
+            {
+                char c = arguments[i];
+
+                if (c == '"')
+                {
+                    inQuotes = !inQuotes;
+                }
+                else if (c == ' ' && !inQuotes)
+                {
+                    if (i > startIndex)
+                    {
+                        string arg = Unquote(arguments.Substring(startIndex, i - startIndex));
+                        if (!string.IsNullOrWhiteSpace(arg))
+                            yield return arg;
+                    }
+
+                    startIndex = i + 1;
+                }
+            }
+
+            if (startIndex < arguments.Length)
+            {
+                string arg = Unquote(arguments.Substring(startIndex));
+                if (!string.IsNullOrWhiteSpace(arg))
+                    yield return arg;
+            }
+        }
+
+        private static string Unquote(string arg)
+        {
+            arg = arg.Trim();
+            return arg.Length > 1 && arg[0] == '"' && arg[^1] == '"'
+                ? arg.Substring(1, arg.Length - 2)
+                : arg;
         }
 
         private void StartIntegrated()

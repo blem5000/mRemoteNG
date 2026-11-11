@@ -211,6 +211,7 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
 
             if (SelectedConnectionInfo.ExternalCredentialProvider == ExternalCredentialProvider.None) {
                 strHide.Add(nameof(AbstractConnectionRecord.UserViaAPI));
+                strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoSecretEngine));
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoMount));
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoRole));
             } else if (SelectedConnectionInfo.ExternalCredentialProvider == ExternalCredentialProvider.DelineaSecretServer
@@ -218,9 +219,11 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
                 strHide.Add(nameof(AbstractConnectionRecord.Username));
                 strHide.Add(nameof(AbstractConnectionRecord.Password));
                 strHide.Add(nameof(AbstractConnectionRecord.Domain));
+                strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoSecretEngine));
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoMount));
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoRole));
             } else if (SelectedConnectionInfo.ExternalCredentialProvider == ExternalCredentialProvider.OnePassword) {
+                strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoSecretEngine));
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoMount));
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoRole));
             } else if (SelectedConnectionInfo.ExternalCredentialProvider == ExternalCredentialProvider.VaultOpenbao) {
@@ -256,6 +259,8 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
                 strHide.Add(nameof(AbstractConnectionRecord.RDGatewayUsername));
                 strHide.Add(nameof(AbstractConnectionRecord.RDGatewayExternalCredentialProvider));
                 strHide.Add(nameof(AbstractConnectionRecord.RDGatewayUserViaAPI));
+                strHide.Add(nameof(AbstractConnectionRecord.RDGatewayAccessToken));
+            } else if (SelectedConnectionInfo.RDGatewayUseConnectionCredentials == RDGatewayUseConnectionCredentials.No) {
                 strHide.Add(nameof(AbstractConnectionRecord.RDGatewayAccessToken));
             } else if (SelectedConnectionInfo.RDGatewayUseConnectionCredentials == RDGatewayUseConnectionCredentials.ExternalCredentialProvider) {
                 strHide.Add(nameof(AbstractConnectionRecord.RDGatewayDomain));

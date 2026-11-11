@@ -42,6 +42,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             element.Add(new XAttribute("Descr", connectionInfo.Description));
             element.Add(new XAttribute("Icon", connectionInfo.Icon));
             element.Add(new XAttribute("Panel", connectionInfo.Panel));
+            element.Add(new XAttribute("Color", connectionInfo.Color));
             element.Add(new XAttribute("TabColor", connectionInfo.TabColor));
             element.Add(new XAttribute("ConnectionFrameColor", connectionInfo.ConnectionFrameColor));
             element.Add(new XAttribute("Id", connectionInfo.ConstantID));
@@ -142,6 +143,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                 ? new XAttribute("RDGatewayPassword", _cryptographyProvider.Encrypt(connectionInfo.RDGatewayPassword, _encryptionKey))
                 : new XAttribute("RDGatewayPassword", ""));
 
+            element.Add(_saveFilter.SavePassword
+                ? new XAttribute("RDGatewayAccessToken", _cryptographyProvider.Encrypt(connectionInfo.RDGatewayAccessToken ?? string.Empty, _encryptionKey))
+                : new XAttribute("RDGatewayAccessToken", ""));
+
             element.Add(_saveFilter.SaveDomain
                 ? new XAttribute("RDGatewayDomain", connectionInfo.RDGatewayDomain)
                 : new XAttribute("RDGatewayDomain", ""));
@@ -195,6 +200,8 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                 element.Add(new XAttribute("InheritIcon", inheritance.Icon.ToString().ToLowerInvariant()));
             if (inheritance.Panel)
                 element.Add(new XAttribute("InheritPanel", inheritance.Panel.ToString().ToLowerInvariant()));
+            if (inheritance.Color)
+                element.Add(new XAttribute("InheritColor", inheritance.Color.ToString().ToLowerInvariant()));
             if (inheritance.TabColor)
                 element.Add(new XAttribute("InheritTabColor", inheritance.TabColor.ToString().ToLowerInvariant()));
             if (inheritance.ConnectionFrameColor)
