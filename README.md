@@ -11,8 +11,8 @@ Każde wydanie jest publikowane jako **jeden release z dwoma plikami** — wybie
 
 | Plik | .NET | Rozmiar | Kiedy wybrać |
 | --- | --- | --- | --- |
-| `mRemoteNG-1.78.2-fix-YYYYMMDD-x64.zip` | wymaga zainstalowanego .NET 9 lub 10 | ~20 MB | masz już .NET i chcesz mniejszą paczkę |
-| `mRemoteNG-1.78.2-fix-YYYYMMDD-x64-selfcontained.zip` | .NET 9.0.17 w paczce | ~90 MB | nie chcesz instalować .NET albo potrzebujesz dokładnie runtime 9 |
+| `mRemoteNG-1.78.2-fix-YYYYMMDD-x64.zip` | wymaga zainstalowanego .NET 11 Desktop Runtime | ~20 MB | masz już .NET i chcesz mniejszą paczkę |
+| `mRemoteNG-1.78.2-fix-20261116e-x64-selfcontained.zip` | .NET 11 w paczce | ~90 MB | nie chcesz instalować .NET |
 
 Najnowsze wydanie: <https://github.com/blem5000/mRemoteNG/releases/latest>
 
@@ -33,8 +33,8 @@ program nie wymaga instalatora ani uprawnień administratora.
   względem schematu.
 - **Narzędzia zewnętrzne** — argumenty z hasłami zawierającymi spacje, `=` i znaki specjalne są
   przekazywane poprawnie, również przy „Uruchom jako administrator”.
-- **Bezpieczeństwo zależności** — SSH.NET 2026.0.0, BouncyCastle 2.7.0, log4net 3.3.2; brak
-  podatnych pakietów.
+- **Bezpieczeństwo zależności** — SSH.NET 2026.0.1, BouncyCastle 2.7.0, log4net 3.6.0;
+  brak podatnych pakietów.
 - Dołączony `PuTTYNG.exe` w wersji **0.85** (mRemoteNG, without embedded help) z poprawkami
   bezpieczeństwa z 0.84 i 0.85.
 
@@ -72,11 +72,15 @@ Sprawdzić można ręcznie: **Pomoc → Sprawdź aktualizacje**, albo automatycz
 
 ## Wymagania
 
-- Windows 10/11 x64,
-- .NET 9 lub 10 (albo paczka self-contained, która ma runtime w środku),
+- Windows 10 (1809+) / 11 x64 lub ARM64,
+- .NET 11 Desktop Runtime (albo paczka self-contained, która ma runtime w środku),
+- Visual Studio 2026 (18.12) i SDK 11.0.100 do budowania ze źródeł,
 - Visual C++ Redistributable x64 (program sam zaproponuje pobranie, jeśli go brakuje).
 
 ## Budowanie ze źródeł
+
+Wymagany jest **Visual Studio 2026 (MSBuild 18.12+)** i **SDK 11.0.100**. `dotnet build` nie
+wystarczy — projekt używa referencji COM, które obsługuje tylko MSBuild z Visual Studio.
 
 ```powershell
 # build framework-dependent

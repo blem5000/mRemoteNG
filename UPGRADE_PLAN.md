@@ -9,6 +9,49 @@ Dokument opisuje **plan**, nie wykonaną pracę. Merge nie został jeszcze uruch
 
 ---
 
+## POSTĘP (stan na 2026-11-16)
+
+| Krok | Status | Uwagi |
+|---|---|---|
+| 0. Zabezpieczenie | ✔ | branch `upgrade/upstream-merge`, tag backup |
+| 1. Narzędzia | ✔ | SDK 11.0.100 do `%LOCALAPPDATA%\Microsoft\dotnet11`; VS MSBuild 18.7.8 + `MSBuildSDKsPath`; **UWAGA: `dotnet build` nie działa (COM), trzeba MSBuild z VS** |
+| 2. Merge | ✔ | commit `893c1b15`, 40 konfliktów |
+| 3. Konflikty | ✔ | duplikaty → upstream; funkcje forka → nasze; usunięto `DotNetRuntimeCheck` |
+| 4. Build | ✔ | `mRemoteNG.dll` pod `net11.0-windows...` |
+| 5. Testy | ✔ | **2931/2931** (dotnet 11, MSBuild VS + SDK 11) |
+| 6. Weryfikacja funkcji | ✔ | About (SHA + tag), GitHub updater (live API), self-contained bez DOTNET_ROOT |
+| 7. Decyzja o wydaniu | ⏳ | **OCZEKUJE NA DECYZJĘ UŻYTKOWNIKA** |
+| 8. Merge do main | ⏳ | **OCZEKUJE NA DECYZJĘ UŻYTKOWNIKA** |
+
+### Szczegóły wykonania
+
+- Konflikty rozwiązane grupami: 27 plików duplikatów poprawek → upstream;
+  13 plików z funkcjami forka → ręczne połączenie (m.in. `ProgramRoot`, `frmMain`,
+  `frmOptions`, `FrmAbout`, `AppUpdater`).
+- Automatyczny merge zduplikował konstruktor `RootNodeInfo` i właściwości w
+  `SerializableConnectionInfoAllPropertiesOfType` — usunięte.
+- Usunięto własne testy aktywnej zakładki (`ConnectionTabFocusRestoreTests`,
+  `ConnectionTabActivationTests`) — upstream ma `DockPaneStripNGTests` (12 testów).
+- Dodano `?.` w `ConnectionWindow.Prot_Event_Closed` — regresja upstreamu (`InterfaceControl == null`).
+- **Self-contained:** 524 pliki / 237 MB, runtime 11.0.0 w środku, startuje bez zewnętrznego .NET
+  (sprawdzone z `DOTNET_ROOT` wskazującym na pusty katalog).
+- **FD:** wymaga .NET 11 Desktop Runtime; bez niego apphost pokazuje natywny dialog (zgodnie
+  z dokumentacją upstreamu).
+- SHA commita w About: `Fork build 20261116e-v1.78.2-NB (<sha>) · framework-dependent`.
+- Linki About → COPYING/CHANGELOG/CREDITS na branchu `main`: HTTP 200.
+- `user.config` z wersją 10.0.0.0 jest automatycznie normalizowany do 11.0.0.0 przy starcie.
+
+### Blokery / uwagi dla wydania (krok 7)
+
+1. **`BuildTag` nadal `20261116e-v1.78.2-NB`** (wydanie FD/SC z .NET 9 jest aktualnie opublikowane).
+   Przed wydaniem .NET 11 **trzeba podbić tag**, inaczej aktualizator nie wykryje nowej wersji.
+2. Nowy tag releases musi mieć oba zipy z sufiksami `-x64.zip` i `-x64-selfcontained.zip`.
+3. Poprzednie wydanie usunąć dopiero po opublikowaniu nowego (zasada jednego release'u).
+4. Paczki zbudowane w trakcie testów (`artifacts\sc11-x64`) są tymczasowe i nie są przeznaczone
+   do publikacji — przed wydaniem trzeba zbudować je na nowo z podbitym `BuildTag`.
+
+---
+
 ## Sucha analiza (już wykonana)
 
 `git merge-tree --write-tree main upstream/v1.78.2-dev` pokazuje **40 konfliktów**:
