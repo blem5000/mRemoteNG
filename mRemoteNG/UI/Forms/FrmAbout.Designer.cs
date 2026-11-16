@@ -12,6 +12,7 @@
             llLicense = new System.Windows.Forms.LinkLabel();
             lblTitle = new Controls.MrngLabel();
             lblVersion = new Controls.MrngLabel();
+            lblBuild = new Controls.MrngLabel();
             lblLicense = new Controls.MrngLabel();
             lblCopyright = new Controls.MrngLabel();
             ((System.ComponentModel.ISupportInitialize)pbLogo).BeginInit();
@@ -39,6 +40,7 @@
             pnlBottom.Controls.Add(llLicense);
             pnlBottom.Controls.Add(lblTitle);
             pnlBottom.Controls.Add(lblVersion);
+            pnlBottom.Controls.Add(lblBuild);
             pnlBottom.Controls.Add(lblLicense);
             pnlBottom.Controls.Add(lblCopyright);
             pnlBottom.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -99,7 +101,7 @@
             // lblVersion
             // 
             lblVersion.AutoSize = true;
-            lblVersion.Font = new System.Drawing.Font("Segoe UI", 9.75F);
+            lblVersion.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold);
             lblVersion.ForeColor = System.Drawing.SystemColors.ControlText;
             lblVersion.Location = new System.Drawing.Point(6, 30);
             lblVersion.Name = "lblVersion";
@@ -108,12 +110,24 @@
             lblVersion.Text = "Version";
             lblVersion.UseCompatibleTextRendering = true;
             // 
+            // lblBuild
+            // 
+            lblBuild.AutoSize = true;
+            lblBuild.Font = new System.Drawing.Font("Segoe UI", 8.25F);
+            lblBuild.ForeColor = System.Drawing.SystemColors.GrayText;
+            lblBuild.Location = new System.Drawing.Point(6, 52);
+            lblBuild.Name = "lblBuild";
+            lblBuild.Size = new System.Drawing.Size(49, 18);
+            lblBuild.TabIndex = 6;
+            lblBuild.Text = "Build";
+            lblBuild.UseCompatibleTextRendering = true;
+            // 
             // lblLicense
             // 
             lblLicense.AutoSize = true;
             lblLicense.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             lblLicense.ForeColor = System.Drawing.SystemColors.ControlText;
-            lblLicense.Location = new System.Drawing.Point(6, 74);
+            lblLicense.Location = new System.Drawing.Point(6, 92);
             lblLicense.Name = "lblLicense";
             lblLicense.Size = new System.Drawing.Size(48, 22);
             lblLicense.TabIndex = 5;
@@ -125,7 +139,7 @@
             lblCopyright.AutoSize = true;
             lblCopyright.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             lblCopyright.ForeColor = System.Drawing.SystemColors.ControlText;
-            lblCopyright.Location = new System.Drawing.Point(6, 52);
+            lblCopyright.Location = new System.Drawing.Point(6, 70);
             lblCopyright.Name = "lblCopyright";
             lblCopyright.Size = new System.Drawing.Size(63, 22);
             lblCopyright.TabIndex = 2;
@@ -156,6 +170,7 @@
         internal Controls.MrngLabel lblCopyright;
         internal Controls.MrngLabel lblTitle;
         internal Controls.MrngLabel lblVersion;
+        internal Controls.MrngLabel lblBuild;
         internal Controls.MrngLabel lblLicense;
         internal System.Windows.Forms.Panel pnlBottom;
         internal System.Windows.Forms.PictureBox pbLogo;

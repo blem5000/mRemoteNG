@@ -86,6 +86,11 @@ namespace mRemoteNG.App.Update
 
         /// <summary>
         /// True when the latest release in the fork repository is not the build that is running.
+        ///
+        /// Two independent signals are used, because either one alone gives wrong answers here:
+        /// - the tag: every release keeps the version (1.78.2) and only the tag changes, so a
+        ///   newer tag means a newer build even when the version is identical;
+        /// - the version: catches a release published with a genuinely higher version number.
         /// </summary>
         public bool IsUpdateAvailable()
         {
@@ -94,12 +99,20 @@ namespace mRemoteNG.App.Update
                 return false;
             }
 
+            if (ReleaseTag.AreSame(CurrentUpdateInfo.BuildTag, ForkUpdateChannel.BuildTag))
+                return false;
+
+            if (ReleaseTag.IsNewer(CurrentUpdateInfo.BuildTag, ForkUpdateChannel.BuildTag))
+                return true;
+
             Version runningVersion = GeneralAppInfo.GetApplicationVersion();
             if (runningVersion != null && CurrentUpdateInfo.Version > runningVersion)
                 return true;
 
-            return !string.Equals(CurrentUpdateInfo.BuildTag, ForkUpdateChannel.BuildTag,
-                                  StringComparison.OrdinalIgnoreCase);
+            // A tag that cannot be ordered (for example an older naming scheme) still counts as
+            // an update when it is simply a different build.
+            return ReleaseTag.GetSortKey(CurrentUpdateInfo.BuildTag) == null
+                   || ReleaseTag.GetSortKey(ForkUpdateChannel.BuildTag) == null;
         }
 
         public async Task DownloadUpdateAsync(IProgress<int> progress)

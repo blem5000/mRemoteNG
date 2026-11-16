@@ -636,4 +636,41 @@
     <!-- Disable CET compatibility check in .NET 9 AppHost -->
     <CETCompat>false</CETCompat>
   </PropertyGroup>
+
+  <!--
+    Record which git commit produced this build, so two downloads with the same version
+    ("1.78.2") can still be told apart in the About box and in bug reports.
+    The value lands in AssemblyMetadata("Commit", "<sha>") inside obj\, never in the source tree.
+    GIT_COMMIT can be passed in (MSBuild -p:GIT_COMMIT=<sha>); otherwise git is asked.
+  -->
+  <Target Name="ResolveGitCommit" BeforeTargets="BeforeCompile" Condition="'$(GIT_COMMIT)' == ''">
+    <Exec Command="git rev-parse HEAD"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitOutput" />
+      <Output TaskParameter="ExitCode" PropertyName="GitCommitExitCode" />
+    </Exec>
+    <PropertyGroup Condition="'$(GitCommitExitCode)' == '0'">
+      <GIT_COMMIT>$(GitCommitOutput.Trim())</GIT_COMMIT>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="GenerateGitInfo" BeforeTargets="BeforeCompile" DependsOnTargets="ResolveGitCommit"
+          Condition="'$(GIT_COMMIT)' != ''">
+    <PropertyGroup>
+      <GitInfoFile>$(IntermediateOutputPath)GitInfo.cs</GitInfoFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(GitInfoFile)" Overwrite="true"
+                      Lines="[assembly: System.Reflection.AssemblyMetadata(&quot;Commit&quot;, &quot;$(GIT_COMMIT)&quot;)]" />
+    <ItemGroup>
+      <Compile Include="$(GitInfoFile)" />
+    </ItemGroup>
+    <Message Importance="normal" Text="Git commit for this build: $(GIT_COMMIT)" />
+  </Target>
+
+  <Target Name="IncludeGitInfoInClean" AfterTargets="Clean">
+    <Delete Files="$(IntermediateOutputPath)GitInfo.cs" />
+  </Target>
 </Project>

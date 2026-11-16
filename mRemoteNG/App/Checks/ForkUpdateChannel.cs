@@ -18,10 +18,18 @@ namespace mRemoteNG.App.Update
         public const string RepositoryName = "mRemoteNG";
 
         /// <summary>
+        /// Branch the releases are built from, used for "about" links.
+        /// </summary>
+        public const string BranchName = "fix/connection-window-disposed";
+
+        public static string RepositoryUrl =>
+            $"https://github.com/{RepositoryOwner}/{RepositoryName}";
+
+        /// <summary>
         /// Release tag this build was produced from. Bump it together with every release so the
         /// updater can tell "same version, newer build" apart from "newer version".
         /// </summary>
-        public const string BuildTag = "20261116b-v1.78.2-NB";
+        public const string BuildTag = "20261116c-v1.78.2-NB";
 
         public const string FrameworkDependentAssetSuffix = "-x64.zip";
         public const string SelfContainedAssetSuffix = "-x64-selfcontained.zip";

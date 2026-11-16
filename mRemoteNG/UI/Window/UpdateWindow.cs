@@ -1,4 +1,5 @@
 ﻿using mRemoteNG.App;
+using mRemoteNG.App.Info;
 using mRemoteNG.App.Update;
 using mRemoteNG.Messages;
 using mRemoteNG.Resources.Language;
@@ -132,7 +133,7 @@ namespace mRemoteNG.UI.Window
             {
                 await _appUpdate.GetUpdateInfoAsync();
 
-                lblInstalledVersion.Text = Application.ProductVersion;
+                lblInstalledVersion.Text = $"{GeneralAppInfo.ApplicationVersion} · {ForkUpdateChannel.BuildTag}";
                 lblInstalledVersion.Visible = true;
                 lblInstalledVersionLabel.Visible = true;
                 btnCheckForUpdate.Visible = true;
@@ -144,7 +145,7 @@ namespace mRemoteNG.UI.Window
                     SetVisibilityOfUpdateControls(true);
 
                     UpdateInfo updateInfo = _appUpdate.CurrentUpdateInfo;
-                    lblLatestVersion.Text = updateInfo.Version.ToString();
+                    lblLatestVersion.Text = $"{updateInfo.Version} · {updateInfo.BuildTag}";
                     lblLatestVersionLabel.Visible = true;
                     lblLatestVersion.Visible = true;
 
@@ -179,7 +180,7 @@ namespace mRemoteNG.UI.Window
                     if (_appUpdate.CurrentUpdateInfo == null) return;
                     UpdateInfo updateInfo = _appUpdate.CurrentUpdateInfo;
                     if (!updateInfo.IsValid || updateInfo.Version == null) return;
-                    lblLatestVersion.Text = updateInfo.Version.ToString();
+                    lblLatestVersion.Text = $"{updateInfo.Version} · {updateInfo.BuildTag}";
                     lblLatestVersionLabel.Visible = true;
                     lblLatestVersion.Visible = true;
                 }

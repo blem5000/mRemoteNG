@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Windows.Forms;
+using mRemoteNG.App;
 using mRemoteNG.App.Info;
+using mRemoteNG.App.Update;
 using mRemoteNG.Themes;
 using mRemoteNG.Resources.Language;
 using System.Reflection;
@@ -35,7 +37,27 @@ namespace mRemoteNG.UI.Forms
             llLicense.Text = Language.License;
             lblCopyright.Text = GeneralAppInfo.Copyright;
             lblVersion.Text = $@"Version {GeneralAppInfo.ApplicationVersion}";
+            lblBuild.Text = BuildDescription();
             AddPortableString();
+        }
+
+        /// <summary>
+        /// Second line under the version: which fork build this is. The plain version is
+        /// identical across releases, so without this there was no way to tell two downloads apart.
+        /// </summary>
+        private static string BuildDescription()
+        {
+            string[] parts =
+            [
+                $"Fork build {ForkUpdateChannel.BuildTag}",
+                Runtime.IsSelfContainedBuild ? "self-contained" : "framework-dependent"
+            ];
+
+            string commit = GeneralAppInfo.GetCommitHash();
+            if (!string.IsNullOrEmpty(commit))
+                parts[0] += $" ({commit[..System.Math.Min(7, commit.Length)]})";
+
+            return string.Join(" · ", parts);
         }
 
         [Conditional("PORTABLE")]
@@ -60,23 +82,32 @@ namespace mRemoteNG.UI.Forms
 
         private void llLicense_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            OpenUrl("https://raw.githubusercontent.com/mRemoteNG/mRemoteNG/v" + Assembly.GetExecutingAssembly().GetName().Version.ToString().Substring(0, Assembly.GetExecutingAssembly().GetName().Version.ToString().Length - 2) + "-" + Properties.OptionsUpdatesPage.Default.CurrentUpdateChannelType + "/COPYING.txt");
-            Close();
+            OpenForkFile("COPYING.txt");
         }
 
         private void llChangelog_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            OpenUrl("https://raw.githubusercontent.com/mRemoteNG/mRemoteNG/v" + Assembly.GetExecutingAssembly().GetName().Version.ToString().Substring(0, Assembly.GetExecutingAssembly().GetName().Version.ToString().Length - 2) + "-" + Properties.OptionsUpdatesPage.Default.CurrentUpdateChannelType + "/CHANGELOG.md");
-            Close();
+            OpenForkFile("CHANGELOG.md");
         }
 
         private void llCredits_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            OpenUrl("https://raw.githubusercontent.com/mRemoteNG/mRemoteNG/v" + Assembly.GetExecutingAssembly().GetName().Version.ToString().Substring(0, Assembly.GetExecutingAssembly().GetName().Version.ToString().Length - 2) + "-" + Properties.OptionsUpdatesPage.Default.CurrentUpdateChannelType + "/CREDITS.md");
-            Close();
+            OpenForkFile("CREDITS.md");
         }
 
-        private void OpenUrl(string url)
+        /// <summary>
+        /// Opens a file from this fork's repository on GitHub.
+        ///
+        /// The old links pointed at mRemoteNG/mRemoteNG with a tag built from the assembly
+        /// version and the update channel ("v1.78.2-Nightly"), which does not exist — all three
+        /// links returned 404. They now point at the fork the user actually downloaded.
+        /// </summary>
+        private static void OpenForkFile(string fileName)
+        {
+            OpenUrl($"{ForkUpdateChannel.RepositoryUrl}/blob/{ForkUpdateChannel.BranchName}/{fileName}");
+        }
+
+        private static void OpenUrl(string url)
         {
             try
             {
