@@ -45,37 +45,41 @@ namespace mRemoteNG.App
         {
             AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
 
-            string? installedVersion = DotNetRuntimeCheck.GetLatestDotNetRuntimeVersion();
-            //installedVersion = ""; // Force check for testing purposes
-
             var checkFail = false;
 
-            // Checking .NET Runtime version
-            var (latestRuntimeVersion, downloadUrl) = DotNetRuntimeCheck.GetLatestAvailableDotNetVersionAsync().GetAwaiter().GetResult();
-            if (string.IsNullOrEmpty(installedVersion))
+            // Checking .NET Runtime version. The self-contained package ships its own runtime,
+            // so asking the user to install .NET there is always wrong (and was reported by
+            // users as "the self-contained version wants .NET 9").
+            if (!Runtime.IsSelfContainedBuild)
             {
-                try
-                {
-                    var result = ShowDownloadCancelDialog(
-                        $".NET " + DotNetRuntimeCheck.RequiredDotnetVersion + ".0 " + Language.MsgRuntimeIsRequired + "\n\n" +
-                        Language.MsgDownloadLatestRuntime + "\n" + downloadUrl + "\n\n" +
-                        Language.MsgExit + "\n\n",
-                        Language.MsgMissingRuntime + " .NET " + DotNetRuntimeCheck.RequiredDotnetVersion);
+                string? installedVersion = DotNetRuntimeCheck.GetLatestDotNetRuntimeVersion();
 
-                    if (result == DialogResult.OK && InternetConnection.IsPosible())
+                if (string.IsNullOrEmpty(installedVersion))
+                {
+                    var (latestRuntimeVersion, downloadUrl) = DotNetRuntimeCheck.GetLatestAvailableDotNetVersionAsync().GetAwaiter().GetResult();
+                    try
                     {
-                        try
+                        var result = ShowDownloadCancelDialog(
+                            $".NET " + DotNetRuntimeCheck.RequiredDotnetVersion + ".0 " + Language.MsgRuntimeIsRequired + "\n\n" +
+                            Language.MsgDownloadLatestRuntime + "\n" + downloadUrl + "\n\n" +
+                            Language.MsgExit + "\n\n",
+                            Language.MsgMissingRuntime + " .NET " + DotNetRuntimeCheck.RequiredDotnetVersion);
+
+                        if (result == DialogResult.OK && InternetConnection.IsPosible())
                         {
-                            Process.Start(new ProcessStartInfo(fileName: downloadUrl) { UseShellExecute = true });
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show($"Unable to open download link: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            try
+                            {
+                                Process.Start(new ProcessStartInfo(fileName: downloadUrl) { UseShellExecute = true });
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show($"Unable to open download link: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
                         }
                     }
+                    catch { }
+                    checkFail = true;
                 }
-                catch { }
-                checkFail = true;
             }
 
             // Checking Visual C++ Redistributable version

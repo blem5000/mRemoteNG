@@ -36,6 +36,23 @@ namespace mRemoteNG.App
             }
         }
 
+        private static bool? _isSelfContainedBuild;
+
+        /// <summary>
+        /// True when the program runs on the .NET runtime bundled next to mRemoteNG.exe
+        /// (the self-contained package). Such a build never needs an installed .NET, so the
+        /// runtime check must not ask the user to download one.
+        /// </summary>
+        public static bool IsSelfContainedBuild
+        {
+            get
+            {
+                _isSelfContainedBuild ??= File.Exists(
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "coreclr.dll"));
+                return _isSelfContainedBuild.Value;
+            }
+        }
+
         /// <summary>
         /// Feature flag to enable the credential manager feature
         /// </summary>
