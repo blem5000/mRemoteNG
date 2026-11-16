@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Drawing;
 using System.Windows.Forms;
 using mRemoteNG.App;
 using mRemoteNG.App.Info;
@@ -39,6 +40,57 @@ namespace mRemoteNG.UI.Forms
             lblVersion.Text = $@"Version {GeneralAppInfo.ApplicationVersion}";
             lblBuild.Text = BuildDescription();
             AddPortableString();
+            StackBottomText();
+        }
+
+        /// <summary>
+        /// Lays the About box text out top-to-bottom, one below another.
+        ///
+        /// The control positions used to be hard-coded pixel values, which only worked at 100%
+        /// scaling: with the usual 125%/150% DPI the license line grew and its text ended up
+        /// underneath the License/Changelog/Credits links. Stacking by the real control heights
+        /// keeps the spacing correct for any font and any DPI, and grows the form when needed.
+        /// </summary>
+        private void StackBottomText()
+        {
+            const int margin = 6;
+            const int gap = 3;
+            const int linkGap = 1;
+
+            Control[] textBlocks = [lblTitle, lblVersion, lblBuild, lblCopyright, lblLicense];
+            Control[] links = [llLicense, llChangelog, llCredits];
+
+            int y = 3;
+
+            foreach (Control block in textBlocks)
+            {
+                block.Location = new Point(margin, y);
+                y += PreferredHeightOf(block) + gap;
+            }
+
+            y += 2;
+
+            foreach (Control link in links)
+            {
+                link.Location = new Point(5, y);
+                y += PreferredHeightOf(link) + linkGap;
+            }
+
+            int contentHeight = pnlBottom.Padding.Bottom + y;
+
+            // pnlBottom fills whatever is left below the logo, so the form has to grow instead.
+            if (contentHeight > pnlBottom.Height)
+                ClientSize = new Size(ClientSize.Width, ClientSize.Height + (contentHeight - pnlBottom.Height));
+        }
+
+        /// <summary>
+        /// Height the control needs at the current font and DPI. Labels report their text
+        /// height through GetPreferredSize; falls back to the current height when that is empty.
+        /// </summary>
+        private static int PreferredHeightOf(Control control)
+        {
+            Size preferred = control.GetPreferredSize(new Size(control.Width, 0));
+            return preferred.Height > 0 ? preferred.Height : control.Height;
         }
 
         /// <summary>

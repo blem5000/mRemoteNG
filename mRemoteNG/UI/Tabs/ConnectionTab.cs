@@ -40,6 +40,12 @@ namespace mRemoteNG.UI.Tabs
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // Answering "No" to the confirmation must leave everything exactly as it was,
+            // including which tab is active. Showing the modal dialog deactivates this tab and
+            // the dock panel then activates another document (typically the tab of the other
+            // panel), so the user's tab lost the focus even though the close was cancelled.
+            bool wasActiveDocument = IsActiveDocument();
+
             if (!protocolClose)
             {
                 if (!silentClose)
@@ -81,6 +87,52 @@ namespace mRemoteNG.UI.Tabs
             }
 
             base.OnFormClosing(e);
+
+            if (e.Cancel && wasActiveDocument)
+                RestoreAsActiveDocument();
+        }
+
+        /// <summary>
+        /// True when this tab is the one currently shown in its panel.
+        /// </summary>
+        private bool IsActiveDocument()
+        {
+            try
+            {
+                return DockHandler != null && DockHandler.IsActivated;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Brings the focus back to this tab after a cancelled close.
+        ///
+        /// Done after the close sequence finished (BeginInvoke), because the dock panel picks the
+        /// next active document while the modal dialog is up and would overwrite an activation
+        /// performed earlier.
+        /// </summary>
+        private void RestoreAsActiveDocument()
+        {
+            if (!IsHandleCreated || IsDisposed || Disposing) return;
+
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (IsDisposed || Disposing || !IsHandleCreated) return;
+                    if (DockHandler == null || DockHandler.DockPanel == null) return;
+
+                    DockHandler.Activate();
+                }));
+            }
+            catch (Exception ex)
+            {
+                Runtime.MessageCollector.AddExceptionMessage(
+                    "ConnectionTab.RestoreAsActiveDocument() failed", ex);
+            }
         }
 
 
