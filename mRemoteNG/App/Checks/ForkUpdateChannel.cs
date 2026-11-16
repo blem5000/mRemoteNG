@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.Versioning;
 
@@ -29,7 +29,7 @@ namespace mRemoteNG.App.Update
         /// Release tag this build was produced from. Bump it together with every release so the
         /// updater can tell "same version, newer build" apart from "newer version".
         /// </summary>
-        public const string BuildTag = "20261116c-v1.78.2-NB";
+        public const string BuildTag = "20261116d-v1.78.2-NB";
 
         public const string FrameworkDependentAssetSuffix = "-x64.zip";
         public const string SelfContainedAssetSuffix = "-x64-selfcontained.zip";
@@ -50,3 +50,4 @@ namespace mRemoteNG.App.Update
             new($"https://api.github.com/repos/{RepositoryOwner}/{RepositoryName}/releases?per_page=15");
     }
 }
+
