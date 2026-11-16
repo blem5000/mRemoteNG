@@ -579,15 +579,14 @@ namespace mRemoteNG.UI.Forms
             // quit (tray menu, File > Exit, update, restart) must still be able to exit.
             if (!QuitRequested && !SkipCloseConfirmation &&
                 Properties.OptionsAppearancePage.Default.CloseToTray &&
+                e.CloseReason == CloseReason.UserClosing &&
+                WindowState != FormWindowState.Minimized)
+            {
                 Runtime.NotificationAreaIcon ??= new NotificationAreaIcon();
-
-                if (WindowState == FormWindowState.Normal || WindowState == FormWindowState.Maximized)
-                {
-                    Hide();
-                    WindowState = FormWindowState.Minimized;
-                    e.Cancel = true;
-                    return;
-                }
+                Hide();
+                WindowState = FormWindowState.Minimized;
+                e.Cancel = true;
+                return;
             }
 
             int openConnections = CountOpenConnections(pnlDock.Contents);

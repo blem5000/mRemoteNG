@@ -25,15 +25,6 @@ namespace mRemoteNG.Tree.Root
             Type = rootType;
         }
 
-        public RootNodeInfo(RootNodeType rootType, string uniqueId)
-            : base(uniqueId)
-        {
-            // Set here, after the base constructor: its defaults name the new container "New Folder"
-            // through the overridden Name, and a field initializer would run before that.
-            _name = Language.Connections;
-            Type = rootType;
-        }
-
         public RootNodeInfo(RootNodeType rootType)
             : this(rootType, Guid.NewGuid().ToString())
         {
