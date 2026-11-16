@@ -300,8 +300,12 @@ namespace mRemoteNG.UI.Forms
             bool restartRequired = SaveOptions();
             // Clear change flags after saving
             ClearChangeFlags();
+
+            // Ask while this form still exists: a restart tears the whole application down.
+            if (PromptForRestartIfNeeded(restartRequired))
+                return;
+
             CloseRequested?.Invoke(this, EventArgs.Empty);
-            PromptForRestartIfNeeded(restartRequired);
         }
 
         private void BtnApply_Click(object sender, EventArgs e)
@@ -341,20 +345,24 @@ namespace mRemoteNG.UI.Forms
 
         /// <summary>
         /// Asks whether to restart right away when a saved theme change needs one.
+        /// Returns true when a restart was requested, so the caller must not close the
+        /// dialog afterwards — the whole application is going down.
         /// </summary>
-        private void PromptForRestartIfNeeded(bool restartRequired)
+        private bool PromptForRestartIfNeeded(bool restartRequired)
         {
-            if (!restartRequired) return;
+            if (!restartRequired) return false;
 
             DialogResult result = MessageBox.Show(
+                this,
                 "The selected theme was saved and will be used from the next start. Restart mRemoteNG now?",
                 "Restart required",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
-            if (result != DialogResult.Yes) return;
+            if (result != DialogResult.Yes) return false;
 
             ProgramRoot.RestartApplication();
+            return true;
         }
 
         private void LstOptionPages_SelectedIndexChanged(object sender, EventArgs e)
