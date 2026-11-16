@@ -961,7 +961,9 @@ namespace mRemoteNG.UI.Window
         public void Prot_Event_Closed(object sender)
         {
             ProtocolBase protocolBase = sender as ProtocolBase;
-            if (!(protocolBase?.InterfaceControl.Parent is ConnectionTab tabPage)) return;
+            // A protocol that never attached has no InterfaceControl. Guard the whole chain:
+            // otherwise the null .Parent throws before we even get to the tab checks.
+            if (!(protocolBase?.InterfaceControl?.Parent is ConnectionTab tabPage)) return;
             if (tabPage.Disposing || tabPage.IsDisposed) return;
             if (IsDisposed || Disposing || !IsHandleCreated) return;
             tabPage.protocolClose = true;
