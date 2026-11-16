@@ -119,6 +119,21 @@ namespace mRemoteNG.UI.Forms
 
         public bool IsClosing { get; private set; }
 
+        /// <summary>
+        /// Set when the application is being quit explicitly (tray menu, File > Exit, update)
+        /// rather than by the user clicking the window close button.
+        /// </summary>
+        public bool QuitRequested { get; private set; }
+
+        /// <summary>
+        /// Quits the application from an explicit user action, bypassing "close to tray".
+        /// </summary>
+        public void CloseForQuit()
+        {
+            QuitRequested = true;
+            Close();
+        }
+
         public bool AreWeUsingSqlServerForSavingConnections
         {
             get => _usingSqlServer;
@@ -399,12 +414,22 @@ namespace mRemoteNG.UI.Forms
 
             CTaskDialog.ShowTaskDialogBox(this, GeneralAppInfo.ProductName, Language.AskUpdatesMainInstruction, string.Format(Language.AskUpdatesContent, GeneralAppInfo.ProductName), "", "", "", "", string.Join(" | ", commandButtons), ETaskDialogButtons.None, ESysIcons.Question, ESysIcons.Question);
 
-            if (CTaskDialog.CommandButtonResult == 0 | CTaskDialog.CommandButtonResult == 1)
+            int commandResult = CTaskDialog.CommandButtonResult;
+
+            // "Ask later" (or a dialog dismissed without a choice): ask again on the next start.
+            if (commandResult != 0 && commandResult != 1) return;
+
+            if (commandResult == 0)
             {
-                Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked = true;
+                // "Use the recommended settings" = check for updates weekly.
+                Properties.OptionsUpdatesPage.Default.CheckForUpdatesOnStartup = true;
+                Properties.OptionsUpdatesPage.Default.CheckForUpdatesFrequencyDays = 7;
             }
 
-            if (CTaskDialog.CommandButtonResult != 1) return;
+            Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked = true;
+            Properties.OptionsUpdatesPage.Default.Save();
+
+            if (commandResult != 1) return;
 
             AppWindows.Show(WindowType.Options);
             if (AppWindows.OptionsFormWindow != null)
@@ -430,11 +455,48 @@ namespace mRemoteNG.UI.Forms
 
         private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (Runtime.WindowList != null)
+            if (IsClosing)
+                return;
+
+            // CloseToTray only applies when the user closes the window; an explicit quit
+            // (tray menu, File > Exit, update) must still be able to exit.
+            if (!QuitRequested &&
+                Properties.OptionsAppearancePage.Default.CloseToTray &&
+                e.CloseReason == CloseReason.UserClosing &&
+                WindowState != FormWindowState.Minimized)
             {
-                foreach (BaseWindow window in Runtime.WindowList)
+                Runtime.NotificationAreaIcon ??= new NotificationAreaIcon();
+                Hide();
+                WindowState = FormWindowState.Minimized;
+                e.Cancel = true;
+                return;
+            }
+
+            int openConnections = CountOpenConnections();
+            bool confirmationAllowed = QuitRequested || e.CloseReason == CloseReason.UserClosing;
+
+            if (confirmationAllowed && openConnections > 0)
+            {
+                ConfirmCloseEnum confirmMode = (ConfirmCloseEnum)Properties.Settings.Default.ConfirmCloseConnection;
+                bool shouldConfirm = confirmMode == ConfirmCloseEnum.All
+                                     || (confirmMode == ConfirmCloseEnum.Multiple && openConnections > 1)
+                                     || confirmMode == ConfirmCloseEnum.Exit;
+
+                if (shouldConfirm)
                 {
-                    window.Close();
+                    DialogResult result = CTaskDialog.MessageBox(this, Application.ProductName, Language.ConfirmExitMainInstruction, "", "", "", Language.CheckboxDoNotShowThisMessageAgain, ETaskDialogButtons.YesNo, ESysIcons.Question, ESysIcons.Question);
+                    if (CTaskDialog.VerificationChecked)
+                    {
+                        Properties.Settings.Default.ConfirmCloseConnection = (int)ConfirmCloseEnum.Never;
+                        Properties.Settings.Default.Save();
+                    }
+
+                    if (result == DialogResult.No)
+                    {
+                        // Stay open - nothing has been hidden or closed yet.
+                        e.Cancel = true;
+                        return;
+                    }
                 }
             }
 
@@ -442,50 +504,13 @@ namespace mRemoteNG.UI.Forms
 
             Hide();
 
-            if (Properties.OptionsAppearancePage.Default.CloseToTray)
+            // Close the panels only after the exit was confirmed. IsClosing is already set,
+            // so ConnectionWindow skips its own prompt and closes its tabs silently.
+            if (Runtime.WindowList != null)
             {
-                Runtime.NotificationAreaIcon ??= new NotificationAreaIcon();
-
-                if (WindowState == FormWindowState.Normal || WindowState == FormWindowState.Maximized)
+                foreach (BaseWindow window in Runtime.WindowList)
                 {
-                    Hide();
-                    WindowState = FormWindowState.Minimized;
-                    e.Cancel = true;
-                    return;
-                }
-            }
-
-            if (!(Runtime.WindowList == null || Runtime.WindowList.Count == 0))
-            {
-                int openConnections = 0;
-                if (pnlDock.Contents.Count > 0)
-                {
-                    foreach (IDockContent dc in pnlDock.Contents)
-                    {
-                        if (dc is not ConnectionWindow cw) continue;
-                        if (cw.Controls.Count < 1) continue;
-                        if (cw.Controls[0] is not DockPanel dp) continue;
-                        if (dp.Contents.Count > 0)
-                            openConnections += dp.Contents.Count;
-                    }
-                }
-
-                if (openConnections > 0 &&
-                    (Properties.Settings.Default.ConfirmCloseConnection == (int)ConfirmCloseEnum.All |
-                     (Properties.Settings.Default.ConfirmCloseConnection == (int)ConfirmCloseEnum.Multiple &
-                      openConnections > 1) || Properties.Settings.Default.ConfirmCloseConnection == (int)ConfirmCloseEnum.Exit))
-                {
-                    DialogResult result = CTaskDialog.MessageBox(this, Application.ProductName, Language.ConfirmExitMainInstruction, "", "", "", Language.CheckboxDoNotShowThisMessageAgain, ETaskDialogButtons.YesNo, ESysIcons.Question, ESysIcons.Question);
-                    if (CTaskDialog.VerificationChecked)
-                    {
-                        Properties.Settings.Default.ConfirmCloseConnection = (int)ConfirmCloseEnum.Never;
-                    }
-
-                    if (result == DialogResult.No)
-                    {
-                        e.Cancel = true;
-                        return;
-                    }
+                    window.Close();
                 }
             }
 
@@ -495,6 +520,23 @@ namespace mRemoteNG.UI.Forms
             Shutdown.StartUpdate();
 
             Debug.Print("[END] - " + Convert.ToString(DateTime.Now, CultureInfo.InvariantCulture));
+        }
+
+        private int CountOpenConnections()
+        {
+            int openConnections = 0;
+            if (pnlDock.Contents.Count == 0)
+                return 0;
+
+            foreach (IDockContent dc in pnlDock.Contents)
+            {
+                if (dc is not ConnectionWindow cw) continue;
+                if (cw.Controls.Count < 1) continue;
+                if (cw.Controls[0] is not DockPanel dp) continue;
+                openConnections += dp.Contents.Count;
+            }
+
+            return openConnections;
         }
 
         #endregion

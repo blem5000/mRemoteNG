@@ -50,19 +50,8 @@ namespace mRemoteNG.Config.Settings
 
                 Properties.App.Default.Save();
                 Properties.AppUI.Default.Save();
-                Properties.OptionsAdvancedPage.Default.Save();
-                Properties.OptionsAppearancePage.Default.Save();
-                Properties.OptionsBackupPage.Default.Save();
-                Properties.OptionsConnectionsPage.Default.Save();
-                Properties.OptionsCredentialsPage.Default.Save();
-                Properties.OptionsDBsPage.Default.Save();
-                Properties.OptionsNotificationsPage.Default.Save();
-                Properties.OptionsSecurityPage.Default.Save();
-                Properties.OptionsStartupExitPage.Default.Save();
-                Properties.OptionsTabsPanelsPage.Default.Save();
-                Properties.OptionsThemePage.Default.Save();
-                Properties.OptionsUpdatesPage.Default.Save();
-                
+                SaveOptionPages();
+
                 Properties.Settings.Default.Save();
 
                 SaveDockPanelLayout();
@@ -72,6 +61,27 @@ namespace mRemoteNG.Config.Settings
             {
                 Runtime.MessageCollector.AddExceptionStackTrace("Saving settings failed", ex);
             }
+        }
+
+        /// <summary>
+        /// Persists the settings owned by the individual Options pages. These live in their
+        /// own settings classes, so saving <see cref="Properties.Settings"/> alone is not enough.
+        /// Called when the user confirms the Options dialog and again on shutdown.
+        /// </summary>
+        public static void SaveOptionPages()
+        {
+            Properties.OptionsAdvancedPage.Default.Save();
+            Properties.OptionsAppearancePage.Default.Save();
+            Properties.OptionsBackupPage.Default.Save();
+            Properties.OptionsConnectionsPage.Default.Save();
+            Properties.OptionsCredentialsPage.Default.Save();
+            Properties.OptionsDBsPage.Default.Save();
+            Properties.OptionsNotificationsPage.Default.Save();
+            Properties.OptionsSecurityPage.Default.Save();
+            Properties.OptionsStartupExitPage.Default.Save();
+            Properties.OptionsTabsPanelsPage.Default.Save();
+            Properties.OptionsThemePage.Default.Save();
+            Properties.OptionsUpdatesPage.Default.Save();
         }
 
         private static void SaveExternalAppsToolbarLocation(ExternalToolsToolStrip externalToolsToolStrip)

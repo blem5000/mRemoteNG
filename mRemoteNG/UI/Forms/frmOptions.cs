@@ -317,6 +317,10 @@ namespace mRemoteNG.UI.Forms
                 page.SaveSettings();
             }
 
+            // The option pages keep their values in their own settings classes; saving
+            // Settings.Default used to persist nothing, so theme/update choices were lost.
+            mRemoteNG.Config.Settings.SettingsSaver.SaveOptionPages();
+
             Debug.WriteLine((ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None)).FilePath);
             Settings.Default.Save();
         }
