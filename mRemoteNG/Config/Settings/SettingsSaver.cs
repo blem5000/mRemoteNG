@@ -56,6 +56,10 @@ namespace mRemoteNG.Config.Settings
 
                 SaveDockPanelLayout();
                 SaveExternalApps();
+
+                // Keep the AppData copy (or the portable file) up to date so settings survive
+                // moving the program folder and upgrading the version.
+                mRemoteNG.App.Info.UserSettingsFile.Mirror();
             }
             catch (Exception ex)
             {

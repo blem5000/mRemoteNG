@@ -10,6 +10,7 @@ using System.Configuration;
 using System.Drawing;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
+using mRemoteNG.App;
 using System.Runtime.Versioning;
 #endregion
 
@@ -296,21 +297,29 @@ namespace mRemoteNG.UI.Forms
 
         private void BtnOK_Click(object sender, EventArgs e)
         {
-            SaveOptions();
+            bool restartRequired = SaveOptions();
             // Clear change flags after saving
             ClearChangeFlags();
             CloseRequested?.Invoke(this, EventArgs.Empty);
+            PromptForRestartIfNeeded(restartRequired);
         }
 
         private void BtnApply_Click(object sender, EventArgs e)
         {
-            SaveOptions();
+            bool restartRequired = SaveOptions();
             // Clear change flags after applying
             ClearChangeFlags();
+            PromptForRestartIfNeeded(restartRequired);
         }
 
-        private void SaveOptions()
+        /// <summary>
+        /// Saves every options page. Returns true when the saved theme differs from the one
+        /// that was in use before saving, because the dock panel theme is only bound at startup.
+        /// </summary>
+        private bool SaveOptions()
         {
+            string themeNameBefore = OptionsThemePage.Default.ThemeName;
+
             foreach (OptionsPage page in _optionPages)
             {
                 Debug.WriteLine(page.PageName);
@@ -319,10 +328,33 @@ namespace mRemoteNG.UI.Forms
 
             // The option pages keep their values in their own settings classes; saving
             // Settings.Default used to persist nothing, so theme/update choices were lost.
-            mRemoteNG.Config.Settings.SettingsSaver.SaveOptionPages();
+            Config.Settings.SettingsSaver.SaveOptionPages();
 
             Debug.WriteLine((ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None)).FilePath);
             Settings.Default.Save();
+
+            // Keep the standard AppData copy in sync so settings survive moving the program.
+            mRemoteNG.App.Info.UserSettingsFile.Mirror();
+
+            return !string.Equals(themeNameBefore, OptionsThemePage.Default.ThemeName, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Asks whether to restart right away when a saved theme change needs one.
+        /// </summary>
+        private void PromptForRestartIfNeeded(bool restartRequired)
+        {
+            if (!restartRequired) return;
+
+            DialogResult result = MessageBox.Show(
+                "The selected theme was saved and will be used from the next start. Restart mRemoteNG now?",
+                "Restart required",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes) return;
+
+            ProgramRoot.RestartApplication();
         }
 
         private void LstOptionPages_SelectedIndexChanged(object sender, EventArgs e)

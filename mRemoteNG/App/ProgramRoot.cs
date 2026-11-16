@@ -9,6 +9,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -33,6 +34,9 @@ namespace mRemoteNG.App
         [STAThread]
         public static void Main(string[] args)
         {
+            // Decide where the settings come from before anything touches them.
+            Info.UserSettingsFile.Restore();
+
             // Ensure the real entry point is definitely STA
             MainAsync(args).GetAwaiter().GetResult();
         }
@@ -152,6 +156,46 @@ namespace mRemoteNG.App
             ShowSplashOnStaThread();
 
             Application.Run(FrmMain.Default);
+
+            if (_restartRequested)
+                StartNewInstance();
+        }
+
+        private static bool _restartRequested;
+
+        /// <summary>
+        /// Restarts the application once the current instance has shut down. Called when a
+        /// settings change (for example the theme) can only take effect on a fresh start.
+        /// </summary>
+        public static void RestartApplication()
+        {
+            _restartRequested = true;
+            FrmMain.Default.SkipCloseConfirmation = true;
+            Shutdown.Quit();
+        }
+
+        private static void StartNewInstance()
+        {
+            try
+            {
+                string executablePath = Environment.ProcessPath
+                                        ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mRemoteNG.exe");
+                ProcessStartInfo startInfo = new(executablePath)
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory
+                };
+
+                foreach (string argument in Environment.GetCommandLineArgs().Skip(1))
+                    startInfo.ArgumentList.Add(argument);
+
+                Process.Start(startInfo);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"mRemoteNG could not restart automatically: {ex.Message}",
+                                Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         public static void CloseSingletonInstanceMutex()

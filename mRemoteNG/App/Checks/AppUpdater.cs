@@ -2,28 +2,26 @@
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
-using mRemoteNG.App.Info;
-using mRemoteNG.Security.SymmetricEncryption;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
+using mRemoteNG.App.Info;
 using mRemoteNG.Properties;
+using mRemoteNG.Security.SymmetricEncryption;
 using System.Runtime.Versioning;
-#if !PORTABLE
-using mRemoteNG.Tools;
 
-#else
-using System.Windows.Forms;
-
-#endif
 // ReSharper disable ArrangeAccessorOwnerBody
 
 namespace mRemoteNG.App.Update
 {
+    /// <summary>
+    /// Checks this fork's GitHub releases for updates and downloads the matching zip asset.
+    /// </summary>
     [SupportedOSPlatform("windows")]
     public class AppUpdater
     {
         private const int _bufferLength = 8192;
+
         private WebProxy _webProxy;
         private HttpClient _httpClient;
         private CancellationTokenSource _changeLogCancelToken;
@@ -86,6 +84,9 @@ namespace mRemoteNG.App.Update
             UpdateHttpClient();
         }
 
+        /// <summary>
+        /// True when the latest release in the fork repository is not the build that is running.
+        /// </summary>
         public bool IsUpdateAvailable()
         {
             if (CurrentUpdateInfo == null || !CurrentUpdateInfo.IsValid)
@@ -93,9 +94,14 @@ namespace mRemoteNG.App.Update
                 return false;
             }
 
-            return CurrentUpdateInfo.Version > GeneralAppInfo.GetApplicationVersion();
+            Version runningVersion = GeneralAppInfo.GetApplicationVersion();
+            if (runningVersion != null && CurrentUpdateInfo.Version > runningVersion)
+                return true;
+
+            return !string.Equals(CurrentUpdateInfo.BuildTag, ForkUpdateChannel.BuildTag,
+                                  StringComparison.OrdinalIgnoreCase);
         }
-        
+
         public async Task DownloadUpdateAsync(IProgress<int> progress)
         {
             if (IsGetUpdateInfoRunning)
@@ -111,24 +117,11 @@ namespace mRemoteNG.App.Update
             {
                 throw new InvalidOperationException("CurrentUpdateInfo is not valid. GetUpdateInfoAsync() must be called before calling DownloadUpdateAsync().");
             }
-#if !PORTABLE
-            CurrentUpdateInfo.UpdateFilePath = Path.Combine(Path.GetTempPath(), Path.ChangeExtension(Path.GetRandomFileName(), "msi"));
-#else
-            var sfd = new SaveFileDialog
-            {
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-                FileName = CurrentUpdateInfo.FileName,
-                RestoreDirectory = true
-            };
-            if (sfd.ShowDialog() == DialogResult.OK)
-            {
-                CurrentUpdateInfo.UpdateFilePath = sfd.FileName;
-            }
-            else
-            {
-                return;
-            }
-#endif
+
+            string updateDirectory = Path.Combine(Path.GetTempPath(), "mRemoteNG", "updates");
+            Directory.CreateDirectory(updateDirectory);
+            string updateFilePath = Path.Combine(updateDirectory, CurrentUpdateInfo.FileName);
+
             try
             {
                 _getUpdateInfoCancelToken = new CancellationTokenSource();
@@ -139,10 +132,10 @@ namespace mRemoteNG.App.Update
 
                 await using (Stream httpStream = await response.Content.ReadAsStreamAsync(_getUpdateInfoCancelToken.Token))
                 {
-                    await using FileStream fileStream = new(CurrentUpdateInfo.UpdateFilePath, FileMode.Create,
+                    await using FileStream fileStream = new(updateFilePath, FileMode.Create,
                         FileAccess.Write, FileShare.None, _bufferLength, true);
 
-                    while (readBytes <= totalBytes || !_getUpdateInfoCancelToken.IsCancellationRequested)
+                    while (true)
                     {
                         int bytesRead =
                             await httpStream.ReadAsync(buffer.AsMemory(0, _bufferLength), _getUpdateInfoCancelToken.Token);
@@ -156,36 +149,18 @@ namespace mRemoteNG.App.Update
 
                         readBytes += bytesRead;
 
-                        int percentComplete = (int)(readBytes * 100 / totalBytes);
-                        progress.Report(percentComplete);
+                        if (totalBytes > 0)
+                            progress.Report((int)(readBytes * 100 / totalBytes));
                     }
                 }
 
-#if !PORTABLE
-                Authenticode updateAuthenticode = new(CurrentUpdateInfo.UpdateFilePath)
-                    {
-                        RequireThumbprintMatch = true,
-                        ThumbprintToMatch = CurrentUpdateInfo.CertificateThumbprint
-                    };
+                if (!string.IsNullOrEmpty(CurrentUpdateInfo.Checksum))
+                    await VerifyChecksumAsync(updateFilePath, CurrentUpdateInfo.Checksum, _getUpdateInfoCancelToken.Token);
 
-                    if (updateAuthenticode.Verify() != Authenticode.StatusValue.Verified)
-                    {
-                        if (updateAuthenticode.Status == Authenticode.StatusValue.UnhandledException)
-                        {
-                            throw updateAuthenticode.Exception;
-                        }
-
-                        throw new Exception(updateAuthenticode.GetStatusMessage());
-                    }
-#endif
-
-                using SHA512 checksum = SHA512.Create();
-                await using FileStream stream = File.OpenRead(CurrentUpdateInfo.UpdateFilePath);
-                byte[] hash = await checksum.ComputeHashAsync(stream);
-                string hashString = BitConverter.ToString(hash).Replace("-", "").ToUpperInvariant();
-                if (!hashString.Equals(CurrentUpdateInfo.Checksum))
-                    throw new Exception("SHA512 Hashes didn't match!");
-            } finally{
+                CurrentUpdateInfo.UpdateFilePath = updateFilePath;
+            }
+            finally
+            {
                 _getUpdateInfoCancelToken?.Dispose();
                 _getUpdateInfoCancelToken = null;
             }
@@ -194,6 +169,17 @@ namespace mRemoteNG.App.Update
         #endregion
 
         #region Private Methods
+
+        private static async Task VerifyChecksumAsync(string filePath, string expectedChecksum, CancellationToken cancellationToken)
+        {
+            using SHA256 checksum = SHA256.Create();
+            await using FileStream stream = File.OpenRead(filePath);
+            byte[] hash = await checksum.ComputeHashAsync(stream, cancellationToken);
+            string hashString = Convert.ToHexString(hash);
+
+            if (!hashString.Equals(expectedChecksum, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("SHA256 hashes didn't match. The downloaded update was discarded.");
+        }
 
         private void UpdateHttpClient()
         {
@@ -208,8 +194,10 @@ namespace mRemoteNG.App.Update
                 httpClientHandler.UseProxy = true;
                 httpClientHandler.Proxy = _webProxy;
             }
+
             _httpClient = new HttpClient(httpClientHandler);
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(GeneralAppInfo.UserAgent);
+            _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         }
 
         public async Task GetUpdateInfoAsync()
@@ -224,8 +212,9 @@ namespace mRemoteNG.App.Update
             try
             {
                 _getUpdateInfoCancelToken = new CancellationTokenSource();
-                string updateInfo = await _httpClient.GetStringAsync(UpdateChannelInfo.GetUpdateChannelInfo(), _getUpdateInfoCancelToken.Token);
-                CurrentUpdateInfo = UpdateInfo.FromString(updateInfo);
+                string releasesJson = await _httpClient.GetStringAsync(ForkUpdateChannel.ReleasesApiUri, _getUpdateInfoCancelToken.Token);
+                CurrentUpdateInfo = GitHubReleaseParser.ParseLatestRelease(releasesJson, IsPreviewChannel(),
+                                                                          ForkUpdateChannel.AssetSuffix);
                 Properties.OptionsUpdatesPage.Default.CheckForUpdatesLastCheck = DateTime.UtcNow;
 
                 if (!Properties.OptionsUpdatesPage.Default.UpdatePending)
@@ -240,7 +229,7 @@ namespace mRemoteNG.App.Update
             }
         }
 
-        public async Task<string> GetChangeLogAsync()
+        public Task<string> GetChangeLogAsync()
         {
             if (IsGetChangeLogRunning)
             {
@@ -249,16 +238,17 @@ namespace mRemoteNG.App.Update
                 _changeLogCancelToken = null;
             }
 
-            try
-            {
-                _changeLogCancelToken = new CancellationTokenSource();
-                return await _httpClient.GetStringAsync(CurrentUpdateInfo.ChangeLogAddress, _changeLogCancelToken.Token);
-            }
-            finally
-            {
-                _changeLogCancelToken?.Dispose();
-                _changeLogCancelToken = null;
-            }
+            // The release body already came with the release listing, so no second request is needed.
+            _changeLogCancelToken = null;
+            return Task.FromResult(CurrentUpdateInfo?.ChangeLog ?? string.Empty);
+        }
+
+        private static bool IsPreviewChannel()
+        {
+            string channel = Properties.OptionsUpdatesPage.Default.UpdateChannel ?? string.Empty;
+            return channel.Equals("dev", StringComparison.OrdinalIgnoreCase)
+                   || channel.Equals("nightly", StringComparison.OrdinalIgnoreCase)
+                   || channel.Equals("preview", StringComparison.OrdinalIgnoreCase);
         }
 
         #endregion

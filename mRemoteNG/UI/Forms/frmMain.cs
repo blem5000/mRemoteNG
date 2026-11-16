@@ -126,6 +126,12 @@ namespace mRemoteNG.UI.Forms
         public bool QuitRequested { get; private set; }
 
         /// <summary>
+        /// Skips the "close all open connections?" question for programmatic restarts, where
+        /// the user already confirmed the restart itself.
+        /// </summary>
+        public bool SkipCloseConfirmation { get; set; }
+
+        /// <summary>
         /// Quits the application from an explicit user action, bypassing "close to tray".
         /// </summary>
         public void CloseForQuit()
@@ -473,7 +479,8 @@ namespace mRemoteNG.UI.Forms
             }
 
             int openConnections = CountOpenConnections();
-            bool confirmationAllowed = QuitRequested || e.CloseReason == CloseReason.UserClosing;
+            bool confirmationAllowed = (QuitRequested || e.CloseReason == CloseReason.UserClosing)
+                                       && !SkipCloseConfirmation;
 
             if (confirmationAllowed && openConnections > 0)
             {

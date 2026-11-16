@@ -20,6 +20,37 @@ namespace mRemoteNG.App.Update
         public string FileName { get; set; }
         public string Checksum { get; private set; }
 
+        /// <summary>
+        /// Release tag the update was published under (for example 20261116-v1.78.2-NB).
+        /// </summary>
+        public string BuildTag { get; private set; }
+
+        /// <summary>
+        /// Release notes text, shown in the update window.
+        /// </summary>
+        public string ChangeLog { get; private set; }
+
+        /// <summary>
+        /// Builds update information from a GitHub release.
+        /// </summary>
+        public static UpdateInfo FromGitHubRelease(string buildTag, Version version, string fileName,
+                                                   Uri downloadAddress, string changeLog, string checksum)
+        {
+            UpdateInfo newInfo = new()
+            {
+                BuildTag = buildTag,
+                Version = version,
+                FileName = fileName,
+                DownloadAddress = downloadAddress,
+                ChangeLogAddress = downloadAddress,
+                ChangeLog = changeLog ?? string.Empty,
+                Checksum = checksum ?? string.Empty,
+                IsValid = version != null && !string.IsNullOrEmpty(fileName) && downloadAddress != null
+            };
+
+            return newInfo;
+        }
+
         public static UpdateInfo FromString(string input)
         {
             UpdateInfo newInfo = new();

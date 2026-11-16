@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.Windows.Forms;
+using mRemoteNG.App.Update;
 using mRemoteNG.Config.Connections;
 using mRemoteNG.Config.Putty;
 using mRemoteNG.Properties;
@@ -120,8 +121,11 @@ namespace mRemoteNG.App
 
         private static void RunUpdateFile()
         {
-            if (UpdatePending)
-                Process.Start(new ProcessStartInfo(_updateFilePath) { UseShellExecute = true });
+            if (!UpdatePending) return;
+
+            // Zip packages are unpacked and copied over the installation folder after we exit;
+            // anything else keeps the old "hand it to the shell" behaviour.
+            UpdateInstaller.ApplyOnExit(_updateFilePath);
         }
     }
 }
