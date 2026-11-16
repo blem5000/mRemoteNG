@@ -11,7 +11,7 @@ Każde wydanie jest publikowane jako **jeden release z dwoma plikami** — wybie
 
 | Plik | .NET | Rozmiar | Kiedy wybrać |
 | --- | --- | --- | --- |
-| `mRemoteNG-1.78.2-fix-YYYYMMDD-x64.zip` | wymaga zainstalowanego .NET 11 Desktop Runtime | ~20 MB | masz już .NET i chcesz mniejszą paczkę |
+| `mRemoteNG-1.78.2-fix-YYYYMMDD-x64.zip` | wymaga zainstalowanego .NET 11 Desktop Runtime | ~58 MB | masz już .NET i chcesz mniejszą paczkę |
 | `mRemoteNG-1.78.2-fix-20261116e-x64-selfcontained.zip` | .NET 11 w paczce | ~90 MB | nie chcesz instalować .NET |
 
 Najnowsze wydanie: <https://github.com/blem5000/mRemoteNG/releases/latest>
