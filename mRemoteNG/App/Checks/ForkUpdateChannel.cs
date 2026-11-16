@@ -20,7 +20,7 @@ namespace mRemoteNG.App.Update
         /// <summary>
         /// Branch the releases are built from, used for "about" links.
         /// </summary>
-        public const string BranchName = "fix/connection-window-disposed";
+        public const string BranchName = "main";
 
         public static string RepositoryUrl =>
             $"https://github.com/{RepositoryOwner}/{RepositoryName}";
