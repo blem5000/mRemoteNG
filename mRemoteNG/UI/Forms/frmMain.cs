@@ -31,9 +31,11 @@ using System.Windows.Forms;
 using mRemoteNG.UI.Panels;
 using WeifenLuo.WinFormsUI.Docking;
 using mRemoteNG.UI.Controls;
+using System.Linq;
 using mRemoteNG.Resources.Language;
 using System.Runtime.Versioning;
 using mRemoteNG.Config.Settings.Registry;
+using mRemoteNG.Security;
 using System.Threading; // ADDED
 #endregion
 
@@ -48,7 +50,23 @@ namespace mRemoteNG.UI.Forms
         private static readonly Lazy<FrmMain> s_default =
             new(InitializeOnSta, LazyThreadSafetyMode.ExecutionAndPublication);
 
-        public static FrmMain Default => s_default.Value;
+        public static FrmMain Default => GetDefault();
+
+        // The thread is checked before the Lazy runs. In ExecutionAndPublication mode a Lazy keeps
+        // the exception its factory throws, so one call from the wrong thread would otherwise
+        // leave FrmMain.Default failing for the rest of the process, whatever thread asks next.
+        private static FrmMain GetDefault()
+        {
+            if (!s_default.IsValueCreated && !CanBeCreatedOnThisThread())
+                throw new ThreadStateException("FrmMain must be created on an STA thread.");
+            return s_default.Value;
+        }
+
+        private static bool CanBeCreatedOnThisThread()
+        {
+            return Thread.CurrentThread.GetApartmentState() == ApartmentState.STA ||
+                   SynchronizationContext.Current is WindowsFormsSynchronizationContext;
+        }
 
         public static bool IsCreated => s_default.IsValueCreated;
 
@@ -84,6 +102,39 @@ namespace mRemoteNG.UI.Forms
         private readonly ThemeManager _themeManager;
         private readonly FileBackupPruner _backupPruner = new();
         public static FrmOptions OptionsForm;
+
+        /// <summary>
+        /// Recreates the OptionsForm if it has been disposed.
+        /// This method should be called when OptionsForm is in an invalid state.
+        /// </summary>
+        public static void RecreateOptionsForm()
+        {
+            Logger.Instance.Log?.Debug("[FrmMain.RecreateOptionsForm] Recreating OptionsForm");
+
+            // Dispose the old form if it exists
+            if (OptionsForm != null && !OptionsForm.IsDisposed)
+            {
+                Logger.Instance.Log?.Debug("[FrmMain.RecreateOptionsForm] Disposing old OptionsForm");
+                OptionsForm.Dispose();
+            }
+
+            // Create a new instance
+            OptionsForm = new FrmOptions();
+            Logger.Instance.Log?.Debug("[FrmMain.RecreateOptionsForm] New OptionsForm created");
+        }
+
+        protected override bool ProcessCmdKey(ref System.Windows.Forms.Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Alt | Keys.Menu))
+            {
+                if (!msMain.Visible)
+                {
+                    msMain.Visible = true;
+                }
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
 
         internal FullscreenHandler Fullscreen { get; set; }
 
@@ -126,8 +177,7 @@ namespace mRemoteNG.UI.Forms
         public bool QuitRequested { get; private set; }
 
         /// <summary>
-        /// Skips the "close all open connections?" question for programmatic restarts, where
-        /// the user already confirmed the restart itself.
+        /// Skips the "close all open connections?" question for programmatic restarts.
         /// </summary>
         public bool SkipCloseConfirmation { get; set; }
 
@@ -210,13 +260,24 @@ namespace mRemoteNG.UI.Forms
 
             SettingsLoader settingsLoader = new(this, messageCollector, _quickConnectToolStrip, _externalToolsToolStrip, _multiSshToolStrip, msMain);
             settingsLoader.LoadSettings();
+            // A step of its own: LoadSettings stops at its first failure, and this must not depend on the rest.
+            OptionPasswords.ProtectStoredPasswords(messageCollector);
 
             MessageCollectorSetup.SetupMessageCollector(messageCollector, _messageWriters);
             MessageCollectorSetup.BuildMessageWritersFromSettings(_messageWriters);
-
+            _ = AppWindows.ErrorsForm.lvErrorCollector.Handle;
+            MessageCollectorSetup.WriteCollectedMessages(messageCollector, _messageWriters);
+ 
             Startup.Instance.InitializeProgram(messageCollector);
-
+            Runtime.PluginService.LoadPlugins();
+ 
             SetMenuDependencies();
+
+            // Must be set before LoadPanelsFromXml(): on a first run with no saved pnlLayout.xml,
+            // LoadPanelsFromXml() falls back to SetDefaultLayout() -> EnsureGeneralPanel() ->
+            // PanelAdder.AddPanel(), which adds the new panel to Runtime.WindowList — a
+            // NullReferenceException if that list hasn't been created yet.
+            Runtime.WindowList = [];
 
             DockPanelLayoutLoader uiLoader = new(this, messageCollector);
             uiLoader.LoadPanelsFromXml();
@@ -225,28 +286,19 @@ namespace mRemoteNG.UI.Forms
             Properties.Settings.Default.PropertyChanged += OnApplicationSettingChanged;
 
             _themeManager.ThemeChanged += ApplyTheme;
+            ProgramRoot.UiCultureChanged += OnUiCultureChanged;
 
             _fpChainedWindowHandle = NativeMethods.SetClipboardViewer(Handle);
-
-            Runtime.WindowList = [];
 
             if (Properties.App.Default.ResetPanels)
                 SetDefaultLayout();
             else
                 SetLayout();
 
+            ShowHidePanelTabs();
+
             Runtime.ConnectionsService.ConnectionsLoaded += ConnectionsServiceOnConnectionsLoaded;
             Runtime.ConnectionsService.ConnectionsSaved += ConnectionsServiceOnConnectionsSaved;
-            
-            // Close splash screen before loading connections to ensure password dialog appears on top
-            FrmSplashScreenNew splash = FrmSplashScreenNew.GetInstance();
-            if (splash.Dispatcher.CheckAccess())
-                splash.Close();
-            else
-                splash.Dispatcher.Invoke(() => splash.Close());
-
-            CredsAndConsSetup credsAndConsSetup = new();
-            credsAndConsSetup.LoadCredsAndCons();
 
             // Initialize panel binding for Connections and Config panels
             UI.Panels.PanelBinder.Instance.Initialize();
@@ -260,6 +312,7 @@ namespace mRemoteNG.UI.Forms
             _advancedWindowMenu.BuildAdditionalMenuItems();
             SystemEvents.DisplaySettingsChanged += _advancedWindowMenu.OnDisplayChanged;
             ApplyLanguage();
+            toolsMenu.RefreshPluginItems();
 
             Opacity = 1;
             //Fix MagicRemove , revision on panel strategy for mdi
@@ -279,11 +332,17 @@ namespace mRemoteNG.UI.Forms
 
             OptionsForm = new FrmOptions();
 
+            EnsureGeneralPanel();
+            ShowHidePanelTabs();
+
             if (!Properties.OptionsTabsPanelsPage.Default.CreateEmptyPanelOnStartUp)
             {
                 return;
             }
-            string panelName = !string.IsNullOrEmpty(Properties.OptionsTabsPanelsPage.Default.StartUpPanelName) ? Properties.OptionsTabsPanelsPage.Default.StartUpPanelName : Language.NewPanel;
+
+            string panelName = !string.IsNullOrEmpty(Properties.OptionsTabsPanelsPage.Default.StartUpPanelName)
+                ? Properties.OptionsTabsPanelsPage.Default.StartUpPanelName
+                : PanelAdder.DefaultPanelName;
 
             PanelAdder panelAdder = new();
             if (!panelAdder.DoesPanelExist(panelName))
@@ -293,9 +352,31 @@ namespace mRemoteNG.UI.Forms
         private void ApplyLanguage()
         {
             fileMenu.ApplyLanguage();
+            sessionsMenu.ApplyLanguage();
             viewMenu.ApplyLanguage();
             toolsMenu.ApplyLanguage();
             helpMenu.ApplyLanguage();
+        }
+
+        internal void RefreshUiLanguage()
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                Invoke(new MethodInvoker(RefreshUiLanguage));
+                return;
+            }
+
+            ApplyLanguage();
+            UpdateWindowTitle();
+            AppWindows.TreeForm?.RefreshUiLanguage();
+            AppWindows.ConfigForm?.RefreshUiLanguage();
+            AppWindows.ErrorsForm?.RefreshUiLanguage();
+            AppWindows.UpdateForm?.RefreshUiLanguage();
+            AppWindows.OptionsFormWindow?.RefreshUiLanguage();
+            Runtime.NotificationAreaIcon?.RefreshUiLanguage();
         }
 
         private void OnApplicationSettingChanged(object sender, PropertyChangedEventArgs propertyChangedEventArgs)
@@ -358,6 +439,13 @@ namespace mRemoteNG.UI.Forms
             toolsMenu.CredentialProviderCatalog = Runtime.CredentialProviderCatalog;
         }
 
+        // Apply the dark/light title bar before the window is shown to avoid a white flash.
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            _themeManager.ApplyThemeToTitleBar(this);
+        }
+
         //Theming support
         private void ApplyTheme()
         {
@@ -401,6 +489,16 @@ namespace mRemoteNG.UI.Forms
 
         private async void FrmMain_Shown(object sender, EventArgs e)
         {
+            // Bring the main window to the front before showing any startup dialogs.
+            Activate();
+            BringToFront();
+            NativeMethods.SetForegroundWindow(Handle);
+
+            // Close the splash screen now that the main window is already visible, then
+            // prompt for the profile password before the connection set is loaded.
+            ProgramRoot.CloseSplash();
+            new CredsAndConsSetup().LoadCredsAndCons();
+
             PromptForUpdatesPreference();
             await CheckForUpdates();
         }
@@ -411,6 +509,15 @@ namespace mRemoteNG.UI.Forms
             if (!CommonRegistrySettings.AllowCheckForUpdatesAutomatical) return;
 
             if (Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked) return;
+
+            // If the user has already explicitly disabled automatic updates via settings, don't ask again
+            if (!Properties.OptionsUpdatesPage.Default.CheckForUpdatesOnStartup)
+            {
+                Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked = true;
+                Properties.OptionsUpdatesPage.Default.Save();
+                return;
+            }
+
             string[] commandButtons =
             [
                 Language.AskUpdatesCommandRecommended,
@@ -420,26 +527,25 @@ namespace mRemoteNG.UI.Forms
 
             CTaskDialog.ShowTaskDialogBox(this, GeneralAppInfo.ProductName, Language.AskUpdatesMainInstruction, string.Format(Language.AskUpdatesContent, GeneralAppInfo.ProductName), "", "", "", "", string.Join(" | ", commandButtons), ETaskDialogButtons.None, ESysIcons.Question, ESysIcons.Question);
 
-            int commandResult = CTaskDialog.CommandButtonResult;
-
-            // "Ask later" (or a dialog dismissed without a choice): ask again on the next start.
-            if (commandResult != 0 && commandResult != 1) return;
-
-            if (commandResult == 0)
+            if (CTaskDialog.CommandButtonResult == 0)
             {
-                // "Use the recommended settings" = check for updates weekly.
+                // Use Recommended Settings: enable automatic updates with the default frequency
                 Properties.OptionsUpdatesPage.Default.CheckForUpdatesOnStartup = true;
-                Properties.OptionsUpdatesPage.Default.CheckForUpdatesFrequencyDays = 7;
+                if (Properties.OptionsUpdatesPage.Default.CheckForUpdatesFrequencyDays < 1)
+                    Properties.OptionsUpdatesPage.Default.CheckForUpdatesFrequencyDays = 14;
+                Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked = true;
+                Properties.OptionsUpdatesPage.Default.Save();
             }
-
-            Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked = true;
-            Properties.OptionsUpdatesPage.Default.Save();
-
-            if (commandResult != 1) return;
-
-            AppWindows.Show(WindowType.Options);
-            if (AppWindows.OptionsFormWindow != null)
-                AppWindows.OptionsFormWindow.SetActivatedPage(Language.Updates);
+            else if (CTaskDialog.CommandButtonResult == 1)
+            {
+                // Customize: let the user configure update settings manually, then open Options
+                Properties.OptionsUpdatesPage.Default.CheckForUpdatesAsked = true;
+                Properties.OptionsUpdatesPage.Default.Save();
+                AppWindows.Show(WindowType.Options);
+                if (AppWindows.OptionsFormWindow != null)
+                    AppWindows.OptionsFormWindow.SetActivatedPage(Language.Updates);
+            }
+            // For "Ask Later" (button 2), CheckForUpdatesAsked remains false so the dialog will show again next startup
         }
 
         private async Task CheckForUpdates()
@@ -459,60 +565,65 @@ namespace mRemoteNG.UI.Forms
             await Startup.Instance.CheckForUpdate();
         }
 
+        private void OnUiCultureChanged(object? sender, EventArgs e)
+        {
+            RefreshUiLanguage();
+        }
+
         private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (IsClosing)
                 return;
 
-            // CloseToTray only applies when the user closes the window; an explicit quit
-            // (tray menu, File > Exit, update) must still be able to exit.
-            if (!QuitRequested &&
+            // Fork: "close to tray" only applies when the user closes the window; an explicit
+            // quit (tray menu, File > Exit, update, restart) must still be able to exit.
+            if (!QuitRequested && !SkipCloseConfirmation &&
                 Properties.OptionsAppearancePage.Default.CloseToTray &&
-                e.CloseReason == CloseReason.UserClosing &&
-                WindowState != FormWindowState.Minimized)
-            {
                 Runtime.NotificationAreaIcon ??= new NotificationAreaIcon();
-                Hide();
-                WindowState = FormWindowState.Minimized;
+
+                if (WindowState == FormWindowState.Normal || WindowState == FormWindowState.Maximized)
+                {
+                    Hide();
+                    WindowState = FormWindowState.Minimized;
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
+            int openConnections = CountOpenConnections(pnlDock.Contents);
+
+            // Fork: SkipCloseConfirmation is set for a programmatic restart, where the user has
+            // already confirmed the restart itself.
+            bool confirmationAllowed = (QuitRequested || e.CloseReason == CloseReason.UserClosing)
+                                       && !SkipCloseConfirmation;
+
+            if (confirmationAllowed &&
+                ShouldConfirmExit(Properties.Settings.Default.ConfirmCloseConnection, openConnections))
+            {
+                DialogResult result = CTaskDialog.MessageBox(this, Application.ProductName, Language.ConfirmExitMainInstruction, "", "", "", Language.CheckboxDoNotShowThisMessageAgain, ETaskDialogButtons.YesNo, ESysIcons.Question, ESysIcons.Question);
+                if (CTaskDialog.VerificationChecked)
+                {
+                    Properties.Settings.Default.ConfirmCloseConnection = (int)ConfirmCloseEnum.Never;
+                }
+
+                if (result == DialogResult.No)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
+            // Changed options would otherwise be lost without a question (#3249)
+            if (AppWindows.OptionsFormWindow?.ConfirmUnsavedChanges() == false)
+            {
                 e.Cancel = true;
                 return;
             }
 
-            int openConnections = CountOpenConnections();
-            bool confirmationAllowed = (QuitRequested || e.CloseReason == CloseReason.UserClosing)
-                                       && !SkipCloseConfirmation;
-
-            if (confirmationAllowed && openConnections > 0)
-            {
-                ConfirmCloseEnum confirmMode = (ConfirmCloseEnum)Properties.Settings.Default.ConfirmCloseConnection;
-                bool shouldConfirm = confirmMode == ConfirmCloseEnum.All
-                                     || (confirmMode == ConfirmCloseEnum.Multiple && openConnections > 1)
-                                     || confirmMode == ConfirmCloseEnum.Exit;
-
-                if (shouldConfirm)
-                {
-                    DialogResult result = CTaskDialog.MessageBox(this, Application.ProductName, Language.ConfirmExitMainInstruction, "", "", "", Language.CheckboxDoNotShowThisMessageAgain, ETaskDialogButtons.YesNo, ESysIcons.Question, ESysIcons.Question);
-                    if (CTaskDialog.VerificationChecked)
-                    {
-                        Properties.Settings.Default.ConfirmCloseConnection = (int)ConfirmCloseEnum.Never;
-                        Properties.Settings.Default.Save();
-                    }
-
-                    if (result == DialogResult.No)
-                    {
-                        // Stay open - nothing has been hidden or closed yet.
-                        e.Cancel = true;
-                        return;
-                    }
-                }
-            }
+            ProgramRoot.UiCultureChanged -= OnUiCultureChanged;
 
             IsClosing = true;
 
-            Hide();
-
-            // Close the panels only after the exit was confirmed. IsClosing is already set,
-            // so ConnectionWindow skips its own prompt and closes its tabs silently.
             if (Runtime.WindowList != null)
             {
                 foreach (BaseWindow window in Runtime.WindowList)
@@ -521,7 +632,10 @@ namespace mRemoteNG.UI.Forms
                 }
             }
 
+            Hide();
+
             NativeMethods.ChangeClipboardChain(Handle, _fpChainedWindowHandle);
+            SystemEvents.DisplaySettingsChanged -= _advancedWindowMenu.OnDisplayChanged;
             Shutdown.Cleanup(_quickConnectToolStrip, _externalToolsToolStrip, _multiSshToolStrip, this);
 
             Shutdown.StartUpdate();
@@ -529,21 +643,33 @@ namespace mRemoteNG.UI.Forms
             Debug.Print("[END] - " + Convert.ToString(DateTime.Now, CultureInfo.InvariantCulture));
         }
 
-        private int CountOpenConnections()
+        /// <summary>
+        /// Counts the connection tabs in the connection panels. Other documents, like the
+        /// Options window, are shown in the same panel and stay there when hidden.
+        /// </summary>
+        internal static int CountOpenConnections(IEnumerable<IDockContent> panels)
         {
             int openConnections = 0;
-            if (pnlDock.Contents.Count == 0)
-                return 0;
-
-            foreach (IDockContent dc in pnlDock.Contents)
+            foreach (IDockContent dc in panels)
             {
                 if (dc is not ConnectionWindow cw) continue;
                 if (cw.Controls.Count < 1) continue;
                 if (cw.Controls[0] is not DockPanel dp) continue;
-                openConnections += dp.Contents.Count;
+                openConnections += dp.Contents.OfType<ConnectionTab>().Count();
             }
-
             return openConnections;
+        }
+
+        internal static bool ShouldConfirmExit(int confirmCloseConnection, int openConnections)
+        {
+            if (openConnections < 1) return false;
+
+            return confirmCloseConnection switch
+            {
+                (int)ConfirmCloseEnum.All or (int)ConfirmCloseEnum.Exit => true,
+                (int)ConfirmCloseEnum.Multiple => openConnections > 1,
+                _ => false
+            };
         }
 
         #endregion
@@ -600,7 +726,7 @@ namespace mRemoteNG.UI.Forms
                         break;
                     case NativeMethods.WM_ACTIVATEAPP:
                         Control candidateTabToFocus = FromChildHandle(NativeMethods.WindowFromPoint(MousePosition))
-                                               ?? GetChildAtPoint(MousePosition);
+                                               ?? GetChildAtScreenPoint(this, MousePosition);
                         if (candidateTabToFocus is InterfaceControl) candidateTabToFocus.Parent.Focus();
                         _inMouseActivate = false;
                         break;
@@ -609,7 +735,7 @@ namespace mRemoteNG.UI.Forms
                         if (NativeMethods.LOWORD(m.WParam) == NativeMethods.WA_CLICKACTIVE)
                         {
                             Control controlThatWasClicked = FromChildHandle(NativeMethods.WindowFromPoint(MousePosition))
-                                                     ?? GetChildAtPoint(MousePosition);
+                                                     ?? GetChildAtScreenPoint(this, MousePosition);
                             if (controlThatWasClicked != null)
                             {
                                 if (controlThatWasClicked is TreeView ||
@@ -706,6 +832,12 @@ namespace mRemoteNG.UI.Forms
             clientMousePosition.Y = temp_wHigh;
         }
 
+        internal static Control GetChildAtScreenPoint(Control parentControl, Point screenPoint)
+        {
+            Point clientPoint = parentControl.PointToClient(screenPoint);
+            return parentControl.GetChildAtPoint(clientPoint);
+        }
+
         private void ActivateConnection()
         {
             ConnectionWindow cw = pnlDock.ActiveDocument as ConnectionWindow;
@@ -723,6 +855,7 @@ namespace mRemoteNG.UI.Forms
         private void PnlDock_ActiveDocumentChanged(object sender, EventArgs e)
         {
             ActivateConnection();
+            sessionsMenu.UpdateMenuState();
         }
 
         internal void UpdateWindowTitle()
@@ -765,27 +898,28 @@ namespace mRemoteNG.UI.Forms
             Text = titleBuilder.ToString();
         }
 
-        public void ShowHidePanelTabs(DockContent closingDocument = null)
+        public void ShowHidePanelTabs(DockContent? closingDocument = null)
         {
             DocumentStyle newDocumentStyle;
+            bool hasConnectionWindows = pnlDock.Contents.OfType<ConnectionWindow>().Any();
 
-            if (Properties.OptionsTabsPanelsPage.Default.AlwaysShowPanelTabs)
+            if (Properties.OptionsTabsPanelsPage.Default.AlwaysShowPanelTabs || hasConnectionWindows)
             {
                 newDocumentStyle = DocumentStyle.DockingWindow; // Show the panel tabs
             }
             else
             {
-                int nonConnectionPanelCount = 0;
+                int visibleDocumentCount = 0;
                 foreach (IDockContent dockContent in pnlDock.Documents)
                 {
                     DockContent document = (DockContent)dockContent;
-                    if ((closingDocument == null || document != closingDocument) && document is not ConnectionWindow)
+                    if (closingDocument == null || document != closingDocument)
                     {
-                        nonConnectionPanelCount++;
+                        visibleDocumentCount++;
                     }
                 }
 
-                newDocumentStyle = nonConnectionPanelCount == 0
+                newDocumentStyle = visibleDocumentCount <= 1
                     ? DocumentStyle.DockingSdi
                     : DocumentStyle.DockingWindow;
             }
@@ -821,12 +955,14 @@ namespace mRemoteNG.UI.Forms
 
             AppWindows.TreeForm.Show(pnlDock, DockState.DockLeft);
             AppWindows.ConfigForm.Show(pnlDock, DockState.DockLeft);
+            AppWindows.ConfigForm.Activate();
             AppWindows.ErrorsForm.Show(pnlDock, DockState.DockBottomAutoHide);
             viewMenu._mMenViewErrorsAndInfos.Checked = true;
 
             ShowFileMenu();
 
             pnlDock.Visible = true;
+            EnsureGeneralPanel();
         }
 
         public void ShowFileMenu()
@@ -840,6 +976,29 @@ namespace mRemoteNG.UI.Forms
             msMain.Visible = false;
             viewMenu._mMenViewFileMenu.Checked = false;
             MessageBox.Show(Language.FileMenuWillBeHiddenNow, string.Empty, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void EnsureGeneralPanel()
+        {
+            GetOrCreateGeneralPanel().Activate();
+        }
+
+        internal ConnectionWindow GetOrCreateGeneralPanel()
+        {
+            ConnectionWindow? generalPanel = Runtime.WindowList?
+                .OfType<ConnectionWindow>()
+                .FirstOrDefault(window => string.Equals(window.TabText, PanelAdder.DefaultPanelName, StringComparison.OrdinalIgnoreCase));
+
+            if (generalPanel == null || generalPanel.IsDisposed)
+            {
+                generalPanel = new PanelAdder().AddPanel(PanelAdder.DefaultPanelName);
+            }
+            else if (generalPanel.DockState == DockState.Unknown || generalPanel.DockState == DockState.Hidden || !generalPanel.Visible)
+            {
+                generalPanel.Show(pnlDock, DockState.Document);
+            }
+
+            return generalPanel;
         }
 
         public void SetLayout()

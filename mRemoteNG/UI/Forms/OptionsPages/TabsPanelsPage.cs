@@ -1,4 +1,5 @@
-﻿using mRemoteNG.Config.Settings.Registry;
+﻿using mRemoteNG.App;
+using mRemoteNG.Config.Settings.Registry;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
 using System;
@@ -45,7 +46,8 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkDoubleClickClosesTab.Text = Language.DoubleClickTabClosesIt;
             chkAlwaysShowPanelSelectionDlg.Text = Language.AlwaysShowPanelSelection;
             chkCreateEmptyPanelOnStart.Text = Language.CreateEmptyPanelOnStartUp;
-            chkBindConnectionsAndConfigPanels.Text = "Bind Connections and Config panels together when auto-hidden";
+            chkBindConnectionsAndConfigPanels.Text = Language.BindConnectionsAndConfigPanels;
+            chkSendToScreenRdpFullscreen.Text = Language.SendToScreenUsesRdpFullscreen;
             lblPanelName.Text = $@"{Language.PanelName}:";
 
             lblRegistrySettingsUsedInfo.Text = Language.OptionsCompanyPolicyMessage;
@@ -77,6 +79,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkAlwaysShowPanelSelectionDlg.Checked = Properties.OptionsTabsPanelsPage.Default.AlwaysShowPanelSelectionDlg;
             chkCreateEmptyPanelOnStart.Checked = Properties.OptionsTabsPanelsPage.Default.CreateEmptyPanelOnStartUp;
             chkBindConnectionsAndConfigPanels.Checked = Properties.OptionsTabsPanelsPage.Default.BindConnectionsAndConfigPanels;
+            chkSendToScreenRdpFullscreen.Checked = Properties.OptionsTabsPanelsPage.Default.SendToScreenRdpFullscreen;
             txtBoxPanelName.Text = Properties.OptionsTabsPanelsPage.Default.StartUpPanelName;
             UpdatePanelNameTextBox();
         }
@@ -109,6 +112,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             Properties.OptionsTabsPanelsPage.Default.AlwaysShowPanelSelectionDlg = chkAlwaysShowPanelSelectionDlg.Checked;
             Properties.OptionsTabsPanelsPage.Default.CreateEmptyPanelOnStartUp = chkCreateEmptyPanelOnStart.Checked;
             Properties.OptionsTabsPanelsPage.Default.BindConnectionsAndConfigPanels = chkBindConnectionsAndConfigPanels.Checked;
+            Properties.OptionsTabsPanelsPage.Default.SendToScreenRdpFullscreen = chkSendToScreenRdpFullscreen.Checked;
             Properties.OptionsTabsPanelsPage.Default.StartUpPanelName = txtBoxPanelName.Text;
         }
 
@@ -120,7 +124,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
 
             // If registry settings don't exist, create a default instance to prevent null reference exceptions
             if (pageRegSettingsInstance == null)
+            {
                 pageRegSettingsInstance = new OptRegistryTabsPanelsPage();
+                Logger.Instance.Log?.Debug("[TabsPanelsPage.LoadRegistrySettings] pageRegSettingsInstance was null, created default instance");
+            }
 
             RegistryLoader.Cleanup(settingsType);
 

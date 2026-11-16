@@ -27,6 +27,13 @@ namespace mRemoteNG.UI.Forms
             buttonCancel.Text = Language._Cancel;
         }
 
+        // Apply the dark/light title bar before the window is shown to avoid a white flash.
+        protected override void OnHandleCreated(System.EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
+        }
+
         private void ApplyTheme()
         {
             ThemeManager _themeManager = ThemeManager.getInstance();

@@ -20,6 +20,7 @@ namespace mRemoteNG.Tools
     public class ExternalTool : INotifyPropertyChanged
     {
         private string _displayName = string.Empty; // Initialize to avoid CS8618
+        private string _category = string.Empty;
         private string _fileName = string.Empty; // Initialize to avoid CS8618
         private bool _waitForExit;
         private string _arguments = string.Empty; // Initialize to avoid CS8618
@@ -34,6 +35,12 @@ namespace mRemoteNG.Tools
         {
             get => _displayName;
             set => SetField(ref _displayName, value, nameof(DisplayName));
+        }
+
+        public string Category
+        {
+            get => _category;
+            set => SetField(ref _category, value, nameof(Category));
         }
 
         public string FileName
@@ -154,43 +161,65 @@ namespace mRemoteNG.Tools
         private void SetProcessProperties(Process process, ConnectionInfo startConnectionInfo)
         {
             ExternalToolArgumentParser argParser = new(startConnectionInfo);
-
-            // The "runas" verb requires UseShellExecute = true. ArgumentList is not
-            // supported in that mode, so elevation falls back to the Arguments string.
+            string parsedFileName = argParser.ParseArguments(FileName);
+            
+            // Validate the executable path to prevent command injection
+            PathValidator.ValidateExecutablePathOrThrow(parsedFileName, nameof(FileName));
+            
+            // When RunElevated is true, we must use UseShellExecute = true for the "runas" verb
+            // When false, we use UseShellExecute = false for better security with ArgumentList
             process.StartInfo.UseShellExecute = RunElevated;
-            process.StartInfo.FileName = argParser.ParseArguments(FileName);
-
+            process.StartInfo.FileName = parsedFileName;
+            
             if (RunElevated)
             {
+                // With UseShellExecute = true, we must use Arguments property, not ArgumentList
+                // The argument parser already handles escaping properly
                 process.StartInfo.Arguments = argParser.ParseArguments(Arguments);
                 process.StartInfo.Verb = "runas";
             }
             else
             {
-                foreach (var arg in SplitCommandLineArguments(argParser.ParseArguments(Arguments, escapeForShell: false)))
+                // With UseShellExecute = false, use ArgumentList for better security
+                // Parse arguments using CommandLineArguments for proper splitting
+                var cmdLineArgs = new Cmdline.CommandLineArguments { EscapeForShell = false };
+                string parsedArguments = argParser.ParseArguments(Arguments);
+                
+                // Split arguments respecting quotes
+                var argumentParts = SplitCommandLineArguments(parsedArguments);
+                foreach (var arg in argumentParts)
                 {
-                    process.StartInfo.ArgumentList.Add(arg);
+                    if (!string.IsNullOrWhiteSpace(arg))
+                    {
+                        process.StartInfo.ArgumentList.Add(arg);
+                    }
                 }
             }
-
-            if (WorkingDir != "") process.StartInfo.WorkingDirectory = argParser.ParseArguments(WorkingDir);
+            
+            if (WorkingDir != "") 
+            {
+                string parsedWorkingDir = argParser.ParseArguments(WorkingDir);
+                PathValidator.ValidatePathOrThrow(parsedWorkingDir, nameof(WorkingDir));
+                process.StartInfo.WorkingDirectory = parsedWorkingDir;
+            }
         }
-
+        
         /// <summary>
-        /// Splits a command line into arguments, respecting double quotes.
+        /// Splits command line arguments respecting quotes
         /// </summary>
-        private static IEnumerable<string> SplitCommandLineArguments(string arguments)
+        private static List<string> SplitCommandLineArguments(string arguments)
         {
+            List<string> result = new();
             if (string.IsNullOrWhiteSpace(arguments))
-                yield break;
-
+                return result;
+            
             bool inQuotes = false;
             int startIndex = 0;
-
+            
             for (int i = 0; i < arguments.Length; i++)
             {
                 char c = arguments[i];
-
+                
                 if (c == '"')
                 {
                     inQuotes = !inQuotes;
@@ -199,29 +228,29 @@ namespace mRemoteNG.Tools
                 {
                     if (i > startIndex)
                     {
-                        string arg = Unquote(arguments.Substring(startIndex, i - startIndex));
+                        string arg = arguments.Substring(startIndex, i - startIndex).Trim();
+                        // Remove surrounding quotes if present
+                        if (arg.StartsWith("\"") && arg.EndsWith("\"") && arg.Length > 1)
+                            arg = arg.Substring(1, arg.Length - 2);
                         if (!string.IsNullOrWhiteSpace(arg))
-                            yield return arg;
+                            result.Add(arg);
                     }
-
                     startIndex = i + 1;
                 }
             }
-
+            
+            // Add the last argument
             if (startIndex < arguments.Length)
             {
-                string arg = Unquote(arguments.Substring(startIndex));
+                string arg = arguments.Substring(startIndex).Trim();
+                // Remove surrounding quotes if present
+                if (arg.StartsWith("\"") && arg.EndsWith("\"") && arg.Length > 1)
+                    arg = arg.Substring(1, arg.Length - 2);
                 if (!string.IsNullOrWhiteSpace(arg))
-                    yield return arg;
+                    result.Add(arg);
             }
-        }
-
-        private static string Unquote(string arg)
-        {
-            arg = arg.Trim();
-            return arg.Length > 1 && arg[0] == '"' && arg[^1] == '"'
-                ? arg.Substring(1, arg.Length - 2)
-                : arg;
+            
+            return result;
         }
 
         private void StartIntegrated()

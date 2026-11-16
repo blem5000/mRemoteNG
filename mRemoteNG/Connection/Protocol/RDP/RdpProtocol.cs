@@ -3,12 +3,12 @@ using mRemoteNG.App;
 using mRemoteNG.Messages;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
-using mRemoteNG.Security.SymmetricEncryption;
 using mRemoteNG.Tools;
 using mRemoteNG.Tree.Root;
 using mRemoteNG.UI;
 using mRemoteNG.UI.Forms;
 using mRemoteNG.UI.Tabs;
+using mRemoteNG.Security;
 using MSTSCLib;
 using System;
 using System.Diagnostics;
@@ -16,6 +16,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Forms;
 
@@ -39,9 +40,14 @@ namespace mRemoteNG.Connection.Protocol.RDP
         private readonly DisplayProperties _displayProperties;
         protected readonly FrmMain _frmMain = FrmMain.Default;
         protected bool loginComplete;
-        private bool _redirectKeys;
         private bool _alertOnIdleDisconnect;
-        protected uint DesktopScaleFactor => (uint)(_displayProperties.ResolutionScalingFactor.Width * 100);
+        // Read from 1Password by ReadExternalCredentialsAsync, and used once by SetCredentials and SetRdGateway
+        private ExternalConnectors.OP.OnePasswordRead _onePasswordRead;
+        private ExternalConnectors.OP.OnePasswordRead _onePasswordGatewayRead;
+        protected uint DesktopScaleFactor =>
+            Properties.OptionsAdvancedPage.Default.RdpSendDesktopScaleFactor
+                ? (uint)(_displayProperties.ResolutionScalingFactor.Width * 100)
+                : 100;
         protected readonly uint DeviceScaleFactor = 100;
         protected readonly uint Orientation = 0;
         private AxHost AxHost => (AxHost)Control;
@@ -89,23 +95,22 @@ namespace mRemoteNG.Connection.Protocol.RDP
         {
             set
             {
-                _redirectKeys = value;
                 try
                 {
-                    if (!_redirectKeys)
-                    {
-                        return;
-                    }
-
                     Debug.Assert(Convert.ToBoolean(_rdpClient.SecuredSettingsEnabled));
                     IMsRdpClientSecuredSettings msRdpClientSecuredSettings = _rdpClient.SecuredSettings2;
-                    msRdpClientSecuredSettings.KeyboardHookMode = 1; // Apply key combinations at the remote server.
+                    ConfigureKeyboardRedirection(msRdpClientSecuredSettings, value);
                 }
                 catch (Exception ex)
                 {
                     Runtime.MessageCollector.AddExceptionStackTrace(Language.RdpSetRedirectKeysFailed, ex);
                 }
             }
+        }
+
+        internal static void ConfigureKeyboardRedirection(IMsRdpClientSecuredSettings securedSettings, bool redirectKeys)
+        {
+            securedSettings.KeyboardHookMode = redirectKeys ? 1 : 0; // Remote server or local computer, regardless of fullscreen.
         }
 
         public bool LoadBalanceInfoUseUtf8 { get; set; }
@@ -133,6 +138,25 @@ namespace mRemoteNG.Connection.Protocol.RDP
         protected virtual AxHost CreateActiveXRdpClientControl()
         {
             return new AxMsRdpClient6NotSafeForScripting();
+        }
+
+        /// <summary>
+        /// Reads from 1Password the items that <see cref="SetCredentials"/> and <see cref="SetRdGateway"/> will ask
+        /// for, under the same conditions, so that the UI thread is not blocked while op waits (#3628).
+        /// </summary>
+        public override async Task ReadExternalCredentialsAsync(ConnectionInfo info)
+        {
+            if (Force.HasFlag(ConnectionInfo.Force.NoCredentials)) return;
+            if (info.ExternalCredentialProvider != ExternalCredentialProvider.OnePassword) return;
+
+            _onePasswordRead = await ExternalConnectors.OP.OnePasswordCli.ReadPasswordAsync($"{info.UserViaAPI}");
+
+            // SetRdGateway reads the gateway item from 1Password when the connection's provider is 1Password
+            // and the gateway's is not Delinea Secret Server
+            if (info.RDGatewayUsageMethod != RDGatewayUsageMethod.Never
+                && info.RDGatewayUseConnectionCredentials is not (RDGatewayUseConnectionCredentials.Yes or RDGatewayUseConnectionCredentials.SmartCard)
+                && info.RDGatewayExternalCredentialProvider != ExternalCredentialProvider.DelineaSecretServer)
+                _onePasswordGatewayRead = await ExternalConnectors.OP.OnePasswordCli.ReadPasswordAsync($"{info.RDGatewayUserViaAPI}");
         }
 
         public override bool Initialize()
@@ -229,6 +253,34 @@ namespace mRemoteNG.Connection.Protocol.RDP
                 Runtime.MessageCollector.AddExceptionStackTrace(Language.RdpDisconnectFailed, ex);
                 Close();
             }
+        }
+
+        public override void Close()
+        {
+            try
+            {
+                if (_rdpClient != null)
+                {
+                    _rdpClient.OnConnecting -= RDPEvent_OnConnecting;
+                    _rdpClient.OnConnected -= RDPEvent_OnConnected;
+                    _rdpClient.OnLoginComplete -= RDPEvent_OnLoginComplete;
+                    _rdpClient.OnFatalError -= RDPEvent_OnFatalError;
+                    _rdpClient.OnDisconnected -= RDPEvent_OnDisconnected;
+                    _rdpClient.OnIdleTimeoutNotification -= RDPEvent_OnIdleTimeoutNotification;
+                    _rdpClient.OnLeaveFullScreenMode -= RDPEvent_OnLeaveFullscreenMode;
+                }
+
+                if (Control != null)
+                {
+                    Control.GotFocus -= RdpClient_GotFocus;
+                }
+            }
+            catch (Exception ex)
+            {
+                Runtime.MessageCollector.AddExceptionStackTrace("RdpProtocol: error unsubscribing event handlers", ex);
+            }
+
+            base.Close();
         }
 
         public void ToggleFullscreen()
@@ -397,6 +449,37 @@ namespace mRemoteNG.Connection.Protocol.RDP
             }
         }
 
+        internal static bool ShouldDisableCredentialsDelegation(string username)
+        {
+            return string.IsNullOrWhiteSpace(username);
+        }
+
+        /// <summary>
+        /// The external credential provider that the RD Gateway credentials are read from, or None. Only the
+        /// "different username and password" and "external credential provider" modes read them from one.
+        /// Delinea Secret Server, Passwordstate and 1Password read the item in the gateway's own "API User ID"
+        /// field, so the provider chosen for the gateway decides. OpenBao reads with the connection's secret
+        /// engine, mount and role, which the Config panel shows only when the connection itself uses OpenBao,
+        /// so the gateway uses it only then. In the "external credential provider" mode the typed gateway
+        /// fields are hidden, so a gateway left without a provider of its own uses the connection's.
+        /// </summary>
+        internal static ExternalCredentialProvider GatewayCredentialProvider(ConnectionInfo info)
+        {
+            RDGatewayUseConnectionCredentials mode = info.RDGatewayUseConnectionCredentials;
+            if (mode is not (RDGatewayUseConnectionCredentials.No or RDGatewayUseConnectionCredentials.ExternalCredentialProvider))
+                return ExternalCredentialProvider.None;
+
+            return info.RDGatewayExternalCredentialProvider switch
+            {
+                ExternalCredentialProvider.DelineaSecretServer or
+                ExternalCredentialProvider.ClickstudiosPasswordState or
+                ExternalCredentialProvider.OnePassword => info.RDGatewayExternalCredentialProvider,
+                ExternalCredentialProvider.VaultOpenbao when info.ExternalCredentialProvider == ExternalCredentialProvider.VaultOpenbao => ExternalCredentialProvider.VaultOpenbao,
+                ExternalCredentialProvider.None when mode == RDGatewayUseConnectionCredentials.ExternalCredentialProvider => info.ExternalCredentialProvider,
+                _ => ExternalCredentialProvider.None
+            };
+        }
+
         private void SetRdGateway()
         {
             try
@@ -442,8 +525,10 @@ namespace mRemoteNG.Connection.Protocol.RDP
                             string gwd = connectionInfo.RDGatewayDomain;
                             string pkey = "";
 
+                        ExternalCredentialProvider gatewayProvider = GatewayCredentialProvider(InterfaceControl.Info);
+
                         // access secret server api if necessary
-                        if (InterfaceControl.Info.RDGatewayExternalCredentialProvider == ExternalCredentialProvider.DelineaSecretServer)
+                        if (gatewayProvider == ExternalCredentialProvider.DelineaSecretServer)
                         {
                             try
                             {
@@ -455,7 +540,7 @@ namespace mRemoteNG.Connection.Protocol.RDP
                                 Event_ErrorOccured(this, "Secret Server Interface Error: " + ex.Message, 0);
                             }
                         }
-                        else if (InterfaceControl.Info.ExternalCredentialProvider == ExternalCredentialProvider.ClickstudiosPasswordState)
+                        else if (gatewayProvider == ExternalCredentialProvider.ClickstudiosPasswordState)
                         {
                             try
                             {
@@ -467,20 +552,27 @@ namespace mRemoteNG.Connection.Protocol.RDP
                                 Event_ErrorOccured(this, "Passwordstate Interface Error: " + ex.Message, 0);
                             }
                         }
-                        else if (InterfaceControl.Info.ExternalCredentialProvider == ExternalCredentialProvider.OnePassword)
+                        else if (gatewayProvider == ExternalCredentialProvider.OnePassword)
                         {
                             try
                             {
                                 string RDGUserViaAPI = InterfaceControl.Info.RDGatewayUserViaAPI;
-                                ExternalConnectors.OP.OnePasswordCli.ReadPassword($"{RDGUserViaAPI}", out gwu, out gwp, out gwd, out pkey);
+                                ExternalConnectors.OP.OnePasswordRead readAhead = _onePasswordGatewayRead;
+                                _onePasswordGatewayRead = null;
+                                ExternalConnectors.OP.OnePasswordCli.ReadPassword(readAhead, $"{RDGUserViaAPI}", ref gwu, ref gwp, ref gwd, ref pkey);
                             }
                             catch (ExternalConnectors.OP.OnePasswordCliException ex)
                             {
                                 Runtime.MessageCollector.AddMessage(MessageClass.InformationMsg, Language.ECPOnePasswordCommandLine + ": " + ex.Arguments);
                                 Runtime.MessageCollector.AddMessage(MessageClass.ErrorMsg, Language.ECPOnePasswordReadFailed + Environment.NewLine + ex.Message);
                             }
+                            catch (Exception ex)
+                            {
+                                // Such as UriFormatException for an empty or malformed reference, or op not being installed
+                                Runtime.MessageCollector.AddMessage(MessageClass.ErrorMsg, Language.ECPOnePasswordReadFailed + Environment.NewLine + ex.Message);
+                            }
                         }
-                        else if (InterfaceControl.Info.ExternalCredentialProvider == ExternalCredentialProvider.VaultOpenbao)
+                        else if (gatewayProvider == ExternalCredentialProvider.VaultOpenbao)
                         {
                             try {
                                 if (connectionInfo.VaultOpenbaoSecretEngine == VaultOpenbaoSecretEngine.Kv)
@@ -594,7 +686,9 @@ namespace mRemoteNG.Connection.Protocol.RDP
                 {
                     try
                     {
-                        ExternalConnectors.OP.OnePasswordCli.ReadPassword($"{userViaApi}", out userName, out password, out domain, out pkey);
+                        ExternalConnectors.OP.OnePasswordRead readAhead = _onePasswordRead;
+                        _onePasswordRead = null;
+                        ExternalConnectors.OP.OnePasswordCli.ReadPassword(readAhead, $"{userViaApi}", ref userName, ref password, ref domain, ref pkey);
                     }
                     catch (ExternalConnectors.OP.OnePasswordCliException ex)
                     {
@@ -641,20 +735,25 @@ namespace mRemoteNG.Connection.Protocol.RDP
                     _rdpClient.UserName = userName;
                 }
 
-                if (string.IsNullOrEmpty(password))
+                // Restricted Admin and Remote Credential Guard do not forward explicit passwords
+                // on protocol versions that support those modes. Skipping password assignment
+                // avoids potential NTLM fallback attempts that would fail for AD Protected Users.
+                if (ShouldAssignClearTextPassword(connectionInfo))
                 {
-                    if (Properties.OptionsCredentialsPage.Default.EmptyCredentials == "custom")
+                    if (string.IsNullOrEmpty(password))
                     {
-                        if (Properties.OptionsCredentialsPage.Default.DefaultPassword != "")
+                        if (Properties.OptionsCredentialsPage.Default.EmptyCredentials == "custom")
                         {
-                            LegacyRijndaelCryptographyProvider cryptographyProvider = new();
-                            _rdpClient.AdvancedSettings2.ClearTextPassword = cryptographyProvider.Decrypt(Properties.OptionsCredentialsPage.Default.DefaultPassword, Runtime.EncryptionKey);
+                            if (Properties.OptionsCredentialsPage.Default.DefaultPassword != "")
+                            {
+                                _rdpClient.AdvancedSettings2.ClearTextPassword = OptionPasswords.Unprotect(Properties.OptionsCredentialsPage.Default.DefaultPassword);
+                            }
                         }
                     }
-                }
-                else
-                {
-                    _rdpClient.AdvancedSettings2.ClearTextPassword = password;
+                    else
+                    {
+                        _rdpClient.AdvancedSettings2.ClearTextPassword = password;
+                    }
                 }
 
                 if (string.IsNullOrEmpty(domain))
@@ -677,6 +776,31 @@ namespace mRemoteNG.Connection.Protocol.RDP
             }
         }
 
+        protected bool ShouldAssignClearTextPassword(ConnectionInfo connectionInfo)
+        {
+            return RdpProtocolVersion is RDP.RdpVersion.Rdc6 or RDP.RdpVersion.Rdc7
+                || (!connectionInfo.UseRestrictedAdmin && !connectionInfo.UseRCG);
+        }
+
+        /// <summary>
+        /// Whether the remote session resolution is renegotiated to follow the panel
+        /// (or the screen, while in fullscreen) after the connection is established.
+        /// SmartSize scales the image client-side and never resizes the session.
+        /// </summary>
+        internal static bool SessionFollowsPanelSize(ConnectionInfo info)
+        {
+            return info.AutomaticResize && info.Resolution != RDPResolutions.SmartSize;
+        }
+
+        /// <summary>
+        /// Whether both the control and the remote session stay at the size they had
+        /// when the connection was established, with scrollbars handling the overflow.
+        /// </summary>
+        internal static bool IsLockedAtConnectSize(ConnectionInfo info)
+        {
+            return info.Resolution == RDPResolutions.FitToWindow && !info.AutomaticResize;
+        }
+
         private void SetResolution()
         {
             try
@@ -696,30 +820,53 @@ namespace mRemoteNG.Connection.Protocol.RDP
                 switch (InterfaceControl.Info.Resolution)
                 {
                     case RDPResolutions.FitToWindow:
-                    case RDPResolutions.SmartSize:
+                        // Connect at the current content area size.
+                        // Use DisplayRectangle to respect Padding (connection frame border).
+                        var fitRect = InterfaceControl.DisplayRectangle;
+                        _rdpClient.DesktopWidth = fitRect.Width;
+                        _rdpClient.DesktopHeight = fitRect.Height;
+                        Control.Dock = DockStyle.None;
+                        Control.Location = fitRect.Location;
+                        Control.Size = fitRect.Size;
+                        if (IsLockedAtConnectSize(InterfaceControl.Info))
                         {
-                            _rdpClient.DesktopWidth = InterfaceControl.Size.Width;
-                            _rdpClient.DesktopHeight = InterfaceControl.Size.Height;
-
-                            if (InterfaceControl.Info.Resolution == RDPResolutions.SmartSize)
-                            {
-                                _rdpClient.AdvancedSettings2.SmartSizing = true;
-                            }
-
-                            break;
+                            // The control keeps this fixed size; AutoScroll on the
+                            // parent panel provides scrollbars when the panel shrinks
+                            // below the session resolution.
+                            InterfaceControl.AutoScroll = true;
+                            InterfaceControl.AutoScrollMinSize = fitRect.Size;
                         }
+                        else
+                        {
+                            // Automatic resize: the control follows the panel and the
+                            // session resolution is renegotiated to match on every resize
+                            // (see RdpProtocol8.DoResizeClient). Same anchoring as SmartSize.
+                            Control.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+                        }
+                        break;
+                    case RDPResolutions.SmartSize:
+                        // Connect at the full screen resolution so the remote
+                        // desktop is rendered at high quality, then SmartSizing
+                        // scales the image to fit whatever the panel size is.
+                        // Use Anchor instead of Dock.Fill because the AxHost
+                        // ActiveX wrapper doesn't forward Dock-triggered resizes
+                        // to the COM control's internal rendering surface.
+                        // Use DisplayRectangle to respect Padding (connection frame border).
+                        var screen = Screen.FromControl(_frmMain);
+                        _rdpClient.DesktopWidth = screen.Bounds.Width;
+                        _rdpClient.DesktopHeight = screen.Bounds.Height;
+                        _rdpClient.AdvancedSettings2.SmartSizing = true;
+                        var smartRect = InterfaceControl.DisplayRectangle;
+                        Control.Dock = DockStyle.None;
+                        Control.Location = smartRect.Location;
+                        Control.Size = smartRect.Size;
+                        Control.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+                        break;
                     case RDPResolutions.Fullscreen:
                         _rdpClient.FullScreen = true;
                         _rdpClient.DesktopWidth = Screen.FromControl(_frmMain).Bounds.Width;
                         _rdpClient.DesktopHeight = Screen.FromControl(_frmMain).Bounds.Height;
                         break;
-                    default:
-                        {
-                            System.Drawing.Rectangle resolution = connectionInfo.Resolution.GetResolutionRectangle();
-                            _rdpClient.DesktopWidth = resolution.Width;
-                            _rdpClient.DesktopHeight = resolution.Height;
-                            break;
-                        }
                 }
             }
             catch (Exception ex)
@@ -976,7 +1123,7 @@ namespace mRemoteNG.Connection.Protocol.RDP
         {
             Colors = RDPColors.Colors16Bit,
             Sounds = RDPSounds.DoNotPlay,
-            Resolution = RDPResolutions.FitToWindow,
+            Resolution = RDPResolutions.SmartSize,
             Port = 3389
         }
 

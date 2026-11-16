@@ -87,18 +87,14 @@ namespace mRemoteNG.UI.Window
             //
             //pGrid
             //
-            _pGrid.Anchor = ((AnchorStyles.Top | AnchorStyles.Bottom)
-                           | AnchorStyles.Left)
-                          | AnchorStyles.Right;
+            _pGrid.Dock = DockStyle.Fill;
             _pGrid.BrowsableProperties = null;
             _pGrid.ContextMenuStrip = PropertyGridContextMenu;
             _pGrid.Font = new Font("Segoe UI", 8.25F, FontStyle.Regular, GraphicsUnit.Point, Convert.ToByte(0));
             _pGrid.HiddenAttributes = null;
             _pGrid.HiddenProperties = null;
-            _pGrid.Location = new Point(0, 0);
             _pGrid.Name = "_pGrid";
             _pGrid.PropertySort = PropertySort.Categorized;
-            _pGrid.Size = new Size(226, 530);
             _pGrid.TabIndex = 0;
             _pGrid.UseCompatibleTextRendering = true;
             //
@@ -304,6 +300,8 @@ namespace mRemoteNG.UI.Window
             TabText = Language.Config;
             _propertyGridContextMenuShowHelpText.Text = Language.ShowHelpText;
         }
+
+        internal void RefreshUiLanguage() => ApplyLanguage();
 
         private new void ApplyTheme()
         {
@@ -591,58 +589,58 @@ namespace mRemoteNG.UI.Window
 
         private void CheckHostAlive(object hostName)
         {
-            if (string.IsNullOrEmpty(hostName as string))
-            {
-                ShowStatusImage(Properties.Resources.HostStatus_Off);
-                return;
-            }
-
-            Ping pingSender = new();
-
+            // Runs on a background thread: an exception escaping here would terminate the app (#3301)
             try
             {
-                PingReply pReply = pingSender.Send((string)hostName);
-                if (pReply?.Status == IPStatus.Success)
-                {
-                    if ((string)_btnHostStatus.Tag == "checking")
-                    {
-                        ShowStatusImage(Properties.Resources.HostStatus_On);
-                    }
-                        
-                }
-                else
-                {
-                    if ((string)_btnHostStatus.Tag == "checking")
-                    {
-                        ShowStatusImage(Properties.Resources.HostStatus_Off);
-                    }
-                        
-                }
-            }
-            catch (Exception)
-            {
-                if ((string)_btnHostStatus.Tag == "checking")
+                if (string.IsNullOrEmpty(hostName as string))
                 {
                     ShowStatusImage(Properties.Resources.HostStatus_Off);
+                    return;
                 }
-                   
+
+                bool hostIsAlive;
+                try
+                {
+                    using Ping pingSender = new();
+                    hostIsAlive = pingSender.Send((string)hostName)?.Status == IPStatus.Success;
+                }
+                catch (Exception)
+                {
+                    hostIsAlive = false;
+                }
+
+                if ((string)_btnHostStatus.Tag == "checking")
+                    ShowStatusImage(hostIsAlive ? Properties.Resources.HostStatus_On : Properties.Resources.HostStatus_Off);
+            }
+            catch (Exception ex)
+            {
+                Runtime.MessageCollector?.AddExceptionMessage("ConfigWindow.CheckHostAlive failed", ex, MessageClass.WarningMsg, true);
             }
         }
 
-        private delegate void ShowStatusImageCb(Image image);
-
         private void ShowStatusImage(Image image)
         {
+            // The Config window can be closed (or not yet created) while the ping thread is running
+            if (_pGrid.IsDisposed || !_pGrid.IsHandleCreated)
+                return;
+
             if (_pGrid.InvokeRequired)
             {
-                ShowStatusImageCb d = ShowStatusImage;
-                _pGrid.Invoke(d, image);
+                try
+                {
+                    // BeginInvoke does not wait for the UI thread, so closing the window cannot fail this thread
+                    _pGrid.BeginInvoke(() => ShowStatusImage(image));
+                }
+                catch (InvalidOperationException)
+                {
+                    // the window handle was destroyed after the check above
+                }
+
+                return;
             }
-            else
-            {
-                _btnHostStatus.Image = image;
-                _btnHostStatus.Tag = "checkfinished";
-            }
+
+            _btnHostStatus.Image = image;
+            _btnHostStatus.Tag = "checkfinished";
         }
 
         private void SetHostStatus(object connectionInfo)

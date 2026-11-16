@@ -6,7 +6,7 @@
       <Value Profile="(Default)">General</Value>
     </Setting>
     <Setting Name="AlwaysShowPanelTabs" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
+      <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="CreateEmptyPanelOnStartUp" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
@@ -36,6 +36,9 @@
       <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="BindConnectionsAndConfigPanels" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="SendToScreenRdpFullscreen" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>

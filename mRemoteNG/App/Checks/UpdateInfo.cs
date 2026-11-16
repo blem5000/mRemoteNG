@@ -7,18 +7,18 @@ namespace mRemoteNG.App.Update
     public class UpdateInfo
     {
         public bool IsValid { get; private set; }
-        public Version Version { get; private set; }
-        public Uri DownloadAddress { get; private set; }
-        public string UpdateFilePath { get; set; }
-        public Uri ChangeLogAddress { get; private set; }
-        public Uri ImageAddress { get; private set; }
-        public Uri ImageLinkAddress { get; private set; }
+        public Version? Version { get; private set; }
+        public Uri? DownloadAddress { get; private set; }
+        public string? UpdateFilePath { get; set; }
+        public Uri? ChangeLogAddress { get; private set; }
+        public Uri? ImageAddress { get; private set; }
+        public Uri? ImageLinkAddress { get; private set; }
 #if !PORTABLE
-        public string CertificateThumbprint { get; private set; }
+        public string CertificateThumbprint { get; private set; } = string.Empty;
 #endif
         // ReSharper disable once MemberCanBePrivate.Global
-        public string FileName { get; set; }
-        public string Checksum { get; private set; }
+        public string FileName { get; set; } = string.Empty;
+        public string Checksum { get; private set; } = string.Empty;
 
         /// <summary>
         /// Release tag the update was published under (for example 20261116-v1.78.2-NB).
@@ -81,11 +81,11 @@ namespace mRemoteNG.App.Update
 
         public bool CheckIfValid()
         {
-            if (string.IsNullOrEmpty(Version.ToString()))
+            if (string.IsNullOrEmpty(Version?.ToString()))
                 return false;
-            if (string.IsNullOrEmpty(DownloadAddress.AbsoluteUri))
+            if (string.IsNullOrEmpty(DownloadAddress?.AbsoluteUri))
                 return false;
-            if (string.IsNullOrEmpty(ChangeLogAddress.AbsoluteUri))
+            if (string.IsNullOrEmpty(ChangeLogAddress?.AbsoluteUri))
                 return false;
 #if false
             if (string.IsNullOrEmpty(ImageAddress.AbsoluteUri))

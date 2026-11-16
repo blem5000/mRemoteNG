@@ -6,8 +6,10 @@ using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Connection.Protocol.Http;
 using mRemoteNG.Connection.Protocol.RDP;
+using mRemoteNG.Connection.Protocol.Terminal;
 using mRemoteNG.Connection.Protocol.VNC;
 using mRemoteNG.Container;
+using mRemoteNG.Plugins;
 using mRemoteNG.Security;
 using mRemoteNG.Tree;
 using mRemoteNG.Tree.Root;
@@ -19,16 +21,16 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
     {
         public ConnectionTreeModel Deserialize(string serializedData)
         {
-            string[] lines = serializedData.Split(new[] {"\r\n", "\r", "\n"}, StringSplitOptions.RemoveEmptyEntries);
+            List<string[]> lines = SemicolonSeparatedValues.Parse(serializedData);
             List<string> csvHeaders = new();
             // used to map a connectioninfo to it's parent's GUID
             Dictionary<ConnectionInfo, string> parentMapping = new();
 
-            for (int lineNumber = 0; lineNumber < lines.Length; lineNumber++)
+            for (int lineNumber = 0; lineNumber < lines.Count; lineNumber++)
             {
-                string[] line = lines[lineNumber].Split(';');
+                string[] line = lines[lineNumber];
                 if (lineNumber == 0)
-                    csvHeaders = line.ToList();
+                    csvHeaders = ReadHeaders(line);
                 else
                 {
                     ConnectionInfo connectionInfo = ParseConnectionInfo(csvHeaders, line);
@@ -40,6 +42,28 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
             ConnectionTreeModel connectionTreeModel = new();
             connectionTreeModel.AddRootNode(root);
             return connectionTreeModel;
+        }
+
+        // Exports from 2023 to 2026 wrote this for two columns, a separator missing between them,
+        // while every row still had a value for each. Read as two, the columns after it line up again.
+        private const string MergedRedirectHeader = "RedirectDiskDrivesCustomRedirectPorts";
+
+        private static List<string> ReadHeaders(string[] headerLine)
+        {
+            List<string> headers = new();
+            foreach (string header in headerLine)
+            {
+                if (header == MergedRedirectHeader)
+                {
+                    headers.Add("RedirectDiskDrivesCustom");
+                    headers.Add("RedirectPorts");
+                }
+                else
+                {
+                    headers.Add(header);
+                }
+            }
+            return headers;
         }
 
         private RootNodeInfo CreateTreeStructure(Dictionary<ConnectionInfo, string> parentMapping)
@@ -82,7 +106,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
 
             string nodeId = headers.Contains("Id")
                 ? connectionCsv[headers.IndexOf("Id")]
-                : Guid.NewGuid().ToString();
+                : string.Empty;
+            // A hand-written file may leave the Id empty, which the XML loader allows as well.
+            if (string.IsNullOrWhiteSpace(nodeId))
+                nodeId = Guid.NewGuid().ToString();
 
             ConnectionInfo connectionRecord = nodeType == TreeNodeType.Connection
                 ? new ConnectionInfo(nodeId)
@@ -103,6 +130,16 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
             connectionRecord.Panel = headers.Contains("Panel")
                 ? connectionCsv[headers.IndexOf("Panel")]
                 : "";
+
+            if (headers.Contains("TabColor"))
+                connectionRecord.TabColor = connectionCsv[headers.IndexOf("TabColor")];
+
+            if (headers.Contains("ConnectionFrameColor") &&
+                Enum.TryParse(connectionCsv[headers.IndexOf("ConnectionFrameColor")], out ConnectionFrameColor frameColor))
+                connectionRecord.ConnectionFrameColor = frameColor;
+
+            if (headers.Contains("Color"))
+                connectionRecord.Color = connectionCsv[headers.IndexOf("Color")];
 
             connectionRecord.Username = headers.Contains("UserViaAPI")
                 ? connectionCsv[headers.IndexOf("UserViaAPI")]
@@ -258,6 +295,11 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                 if (bool.TryParse(connectionCsv[headers.IndexOf("UseRCG")], out bool value))
                     connectionRecord.UseRCG = value;
             }
+            if (headers.Contains("UseRedirectionServerName"))
+            {
+                if (bool.TryParse(connectionCsv[headers.IndexOf("UseRedirectionServerName")], out bool value))
+                    connectionRecord.UseRedirectionServerName = value;
+            }
 
 
             if (headers.Contains("UseVmId"))
@@ -276,6 +318,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
             {
                 if (Enum.TryParse(connectionCsv[headers.IndexOf("RenderingEngine")], out HTTPBase.RenderingEngine value))
                     connectionRecord.RenderingEngine = value;
+            }
+
+            if (headers.Contains("TerminalBackend"))
+            {
+                if (Enum.TryParse(connectionCsv[headers.IndexOf("TerminalBackend")], out TerminalBackend value))
+                    connectionRecord.TerminalBackend = value;
             }
 
             if (headers.Contains("RDPAuthenticationLevel"))
@@ -386,6 +434,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                     connectionRecord.RedirectSmartCards = value;
             }
 
+            if (headers.Contains("RedirectWebAuthn") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("RedirectWebAuthn")], out bool redirectWebAuthn))
+            {
+                connectionRecord.RedirectWebAuthn = redirectWebAuthn;
+            }
+
             if (headers.Contains("RedirectSound"))
             {
                 if (Enum.TryParse(connectionCsv[headers.IndexOf("RedirectSound")], out RDPSounds value))
@@ -485,6 +539,11 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                 if (Enum.TryParse(connectionCsv[headers.IndexOf("ExternalAddressProvider")], out ExternalAddressProvider value))
                     connectionRecord.ExternalAddressProvider = value;
             }
+            if (headers.Contains("PluginData"))
+            {
+                connectionRecord.ReplacePluginProperties(PluginConnectionDataSerializer.Deserialize(connectionCsv[headers.IndexOf("PluginData")]));
+            }
+            LegacyPluginDataMigrator.Migrate(connectionRecord);
 
             #region Inheritance
 
@@ -572,23 +631,17 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                     connectionRecord.Inheritance.Panel = value;
             }
 
-            if (headers.Contains("InheritColor"))
-            {
-                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritColor")], out bool value))
-                    connectionRecord.Inheritance.Color = value;
-            }
+            if (headers.Contains("InheritTabColor") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("InheritTabColor")], out bool inheritTabColor))
+                connectionRecord.Inheritance.TabColor = inheritTabColor;
 
-            if (headers.Contains("InheritTabColor"))
-            {
-                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritTabColor")], out bool value))
-                    connectionRecord.Inheritance.TabColor = value;
-            }
+            if (headers.Contains("InheritConnectionFrameColor") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("InheritConnectionFrameColor")], out bool inheritConnectionFrameColor))
+                connectionRecord.Inheritance.ConnectionFrameColor = inheritConnectionFrameColor;
 
-            if (headers.Contains("InheritConnectionFrameColor"))
-            {
-                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritConnectionFrameColor")], out bool value))
-                    connectionRecord.Inheritance.ConnectionFrameColor = value;
-            }
+            if (headers.Contains("InheritColor") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("InheritColor")], out bool inheritColor))
+                connectionRecord.Inheritance.Color = inheritColor;
 
             if (headers.Contains("InheritPassword"))
             {
@@ -674,6 +727,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                     connectionRecord.Inheritance.RedirectSmartCards = value;
             }
 
+            if (headers.Contains("InheritRedirectWebAuthn") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("InheritRedirectWebAuthn")], out bool inheritRedirectWebAuthn))
+            {
+                connectionRecord.Inheritance.RedirectWebAuthn = inheritRedirectWebAuthn;
+            }
+
             if (headers.Contains("InheritRedirectSound"))
             {
                 if (bool.TryParse(connectionCsv[headers.IndexOf("InheritRedirectSound")], out bool value))
@@ -715,6 +774,11 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                 if (bool.TryParse(connectionCsv[headers.IndexOf("InheritUseRCG")], out bool value))
                     connectionRecord.Inheritance.UseRCG = value;
             }
+            if (headers.Contains("InheritUseRedirectionServerName"))
+            {
+                if (bool.TryParse(connectionCsv[headers.IndexOf("InheritUseRedirectionServerName")], out bool value))
+                    connectionRecord.Inheritance.UseRedirectionServerName = value;
+            }
 
 
             if (headers.Contains("InheritUseVmId"))
@@ -733,6 +797,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
             {
                 if (bool.TryParse(connectionCsv[headers.IndexOf("InheritRenderingEngine")], out bool value))
                     connectionRecord.Inheritance.RenderingEngine = value;
+            }
+
+            if (headers.Contains("InheritTerminalBackend") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("InheritTerminalBackend")], out bool inheritTerminalBackend))
+            {
+                connectionRecord.Inheritance.TerminalBackend = inheritTerminalBackend;
             }
 
             if (headers.Contains("InheritExternalCredentialProvider"))
@@ -920,6 +990,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
                 if (bool.TryParse(connectionCsv[headers.IndexOf("InheritRDGatewayDomain")], out bool value))
                     connectionRecord.Inheritance.RDGatewayDomain = value;
             }
+
+            if (headers.Contains("InheritRDGatewayAccessToken") &&
+                bool.TryParse(connectionCsv[headers.IndexOf("InheritRDGatewayAccessToken")], out bool inheritRDGatewayAccessToken))
+                connectionRecord.Inheritance.RDGatewayAccessToken = inheritRDGatewayAccessToken;
 
             if (headers.Contains("InheritRDGatewayExternalCredentialProvider"))
             {

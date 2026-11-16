@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Security;
 using System.Windows.Forms;
@@ -8,9 +9,11 @@ using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Connection.Protocol.Http;
 using mRemoteNG.Connection.Protocol.RDP;
+using mRemoteNG.Connection.Protocol.Terminal;
 using mRemoteNG.Connection.Protocol.VNC;
 using mRemoteNG.Container;
 using mRemoteNG.Messages;
+using mRemoteNG.Plugins;
 using mRemoteNG.Security;
 using mRemoteNG.Tools;
 using mRemoteNG.Tree;
@@ -18,21 +21,31 @@ using mRemoteNG.Tree.Root;
 using mRemoteNG.UI.Forms;
 using mRemoteNG.UI.TaskDialog;
 using mRemoteNG.Resources.Language;
+using mRemoteNG.Security.SymmetricEncryption;
 using System.Runtime.Versioning;
 
 namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
 {
     [SupportedOSPlatform("windows")]
-    public class XmlConnectionsDeserializer(Func<Optional<SecureString>> authenticationRequestor = null) : IDeserializer<string, ConnectionTreeModel>
+    public class XmlConnectionsDeserializer(Func<Optional<SecureString>>? authenticationRequestor = null) : IDeserializer<string, ConnectionTreeModel>
     {
+        // Marker written to the root element's KeyProtection attribute by XmlRootNodeSerializer when
+        // the file was saved with DPAPI protection.
+        private const string DpapiKeyProtectionMarker = "Dpapi";
+
         private XmlDocument _xmlDocument;
         private double _confVersion;
         private XmlConnectionsDecryptor _decryptor;
+        private bool _isDpapiProtected;
         private readonly string ConnectionFileName = "";
-        private const double MaxSupportedConfVersion = 2.8;
+        // Must match the newest version written by XmlConnectionSerializerFactory,
+        // otherwise the app refuses to open files it saved itself
+        internal const double MaxSupportedConfVersion = 2.9;
         private readonly RootNodeInfo _rootNodeInfo = new(RootNodeType.Connection);
+        // Ids handed out while reading the current file, to keep each one unique.
+        private readonly HashSet<string> _connectionIds = new(StringComparer.Ordinal);
 
-        public Func<Optional<SecureString>> AuthenticationRequestor { get; set; } = authenticationRequestor;
+        public Func<Optional<SecureString>>? AuthenticationRequestor { get; set; } = authenticationRequestor;
 
         public ConnectionTreeModel Deserialize(string xml)
         {
@@ -44,6 +57,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             if (string.IsNullOrEmpty(xml)) return null;
             try
             {
+                _connectionIds.Clear();
                 LoadXmlConnectionData(xml);
                 ValidateConnectionFileVersion();
 
@@ -53,8 +67,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                 ConnectionTreeModel connectionTreeModel = new();
                 connectionTreeModel.AddRootNode(_rootNodeInfo);
 
-
-                if (_confVersion > 1.3)
+                if (_isDpapiProtected)
+                {
+                    string dpapiProtectedString = _xmlDocument.DocumentElement?.Attributes["Protected"]?.Value;
+                    _decryptor.VerifyDpapiProtectedRoot(dpapiProtectedString);
+                }
+                else if (_confVersion > 1.3)
                 {
                     string protectedString = _xmlDocument.DocumentElement?.Attributes["Protected"]?.Value;
                     if (!_decryptor.ConnectionsFileIsAuthentic(protectedString, _rootNodeInfo.PasswordString.ConvertToSecureString()))
@@ -122,9 +140,18 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             _rootNodeInfo.Name = connectionsRootElement?.Attributes["Name"]?.Value.Trim();
         }
 
-        private void CreateDecryptor(RootNodeInfo rootNodeInfo, XmlElement connectionsRootElement = null)
+        private void CreateDecryptor(RootNodeInfo rootNodeInfo, XmlElement? connectionsRootElement = null)
         {
-            if (_confVersion >= 2.6)
+            _isDpapiProtected = connectionsRootElement?.GetAttributeAsString("KeyProtection") == DpapiKeyProtectionMarker;
+
+            if (_isDpapiProtected)
+            {
+                _decryptor = new XmlConnectionsDecryptor(new DpapiCryptographyProvider(), rootNodeInfo)
+                {
+                    AuthenticationRequestor = AuthenticationRequestor
+                };
+            }
+            else if (_confVersion >= 2.6)
             {
                 BlockCipherEngines engine = connectionsRootElement.GetAttributeAsEnum<BlockCipherEngines>("EncryptionEngine");
                 BlockCipherModes mode = connectionsRootElement.GetAttributeAsEnum<BlockCipherModes>("BlockCipherMode");
@@ -162,13 +189,25 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                             parentContainer.AddChild(connectionInfo);
                             break;
                         case TreeNodeType.Container:
-                            ContainerInfo containerInfo = new();
+                            ContainerInfo containerInfo;
 
                             if (_confVersion >= 0.9)
-                                containerInfo.CopyFrom(GetConnectionInfoFromXml(xmlNode));
+                            {
+                                // Built with the Id from the file: CopyFrom cannot carry the read-only
+                                // ConstantID, so a folder created first and filled in afterwards got a
+                                // new Id on every load.
+                                ConnectionInfo folderInfo = GetConnectionInfoFromXml(xmlNode);
+                                containerInfo = new ContainerInfo(folderInfo.ConstantID);
+                                containerInfo.CopyFrom(folderInfo);
+                            }
+                            else
+                            {
+                                containerInfo = new ContainerInfo();
+                            }
                             if (_confVersion >= 0.8)
                             {
                                 containerInfo.IsExpanded = xmlNode.GetAttributeAsBool("Expanded");
+                                containerInfo.IsRootGroup = xmlNode.GetAttributeAsBool("IsRootGroup");
                             }
 
                             parentContainer.AddChild(containerInfo);
@@ -190,8 +229,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                 return null;
 
             string connectionId = xmlnode.GetAttributeAsString("Id");
-            if (string.IsNullOrWhiteSpace(connectionId))
+            // A file can carry the same Id on two nodes, typically a copy that kept the original's
+            // Id. Everything that looks a connection up by its Id would then only ever reach one of
+            // them, so the later node gets a fresh Id, which the next save writes back.
+            if (string.IsNullOrWhiteSpace(connectionId) || _connectionIds.Contains(connectionId))
                 connectionId = Guid.NewGuid().ToString();
+            _connectionIds.Add(connectionId);
             ConnectionInfo connectionInfo = new(connectionId);
 
             try
@@ -209,7 +252,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                     {
                         connectionInfo.Resolution = xmlnode.GetAttributeAsBool("Fullscreen")
                             ? RDPResolutions.Fullscreen
-                            : RDPResolutions.FitToWindow;
+                            : RDPResolutions.SmartSize;
                     }
 
                     if (!Runtime.UseCredentialManager || _confVersion <= 2.6) // 0.2 - 2.6
@@ -327,7 +370,6 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                     connectionInfo.Inheritance.DisplayWallpaper = xmlnode.GetAttributeAsBool("InheritDisplayWallpaper");
                     connectionInfo.Inheritance.Icon = xmlnode.GetAttributeAsBool("InheritIcon");
                     connectionInfo.Inheritance.Panel = xmlnode.GetAttributeAsBool("InheritPanel");
-                    connectionInfo.Inheritance.Color = xmlnode.GetAttributeAsBool("InheritColor");
                     connectionInfo.Inheritance.TabColor = xmlnode.GetAttributeAsBool("InheritTabColor");
                     connectionInfo.Inheritance.ConnectionFrameColor = xmlnode.GetAttributeAsBool("InheritConnectionFrameColor");
                     connectionInfo.Inheritance.Port = xmlnode.GetAttributeAsBool("InheritPort");
@@ -339,7 +381,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                     connectionInfo.Inheritance.RedirectPrinters = xmlnode.GetAttributeAsBool("InheritRedirectPrinters");
                     connectionInfo.Inheritance.RedirectSmartCards = xmlnode.GetAttributeAsBool("InheritRedirectSmartCards");
                     connectionInfo.Inheritance.RedirectSound = xmlnode.GetAttributeAsBool("InheritRedirectSound");
-                    connectionInfo.Inheritance.RedirectAudioCapture = xmlnode.GetAttributeAsBool("RedirectAudioCapture");
+                    connectionInfo.Inheritance.RedirectAudioCapture = xmlnode.GetAttributeAsBool("InheritRedirectAudioCapture");
                     connectionInfo.Inheritance.Resolution = xmlnode.GetAttributeAsBool("InheritResolution");
                     connectionInfo.Inheritance.UseConsoleSession = xmlnode.GetAttributeAsBool("InheritUseConsoleSession");
 
@@ -352,7 +394,6 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
 
                     connectionInfo.Icon = xmlnode.GetAttributeAsString("Icon");
                     connectionInfo.Panel = xmlnode.GetAttributeAsString("Panel");
-                    connectionInfo.Color = xmlnode.GetAttributeAsString("Color");
                     connectionInfo.TabColor = xmlnode.GetAttributeAsString("TabColor");
                     connectionInfo.ConnectionFrameColor = xmlnode.GetAttributeAsEnum<ConnectionFrameColor>("ConnectionFrameColor");
                 }
@@ -412,8 +453,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                 if (_confVersion >= 1.9)
                 {
                     connectionInfo.RenderingEngine = xmlnode.GetAttributeAsEnum<HTTPBase.RenderingEngine>("RenderingEngine");
+                    connectionInfo.TerminalBackend = xmlnode.GetAttributeAsEnum<TerminalBackend>("TerminalBackend");
                     connectionInfo.MacAddress = xmlnode.GetAttributeAsString("MacAddress");
                     connectionInfo.Inheritance.RenderingEngine = xmlnode.GetAttributeAsBool("InheritRenderingEngine");
+                    connectionInfo.Inheritance.TerminalBackend = xmlnode.GetAttributeAsBool("InheritTerminalBackend");
                     connectionInfo.Inheritance.MacAddress = xmlnode.GetAttributeAsBool("InheritMacAddress");
                 }
 
@@ -446,6 +489,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                     connectionInfo.Inheritance.RDGatewayUseConnectionCredentials = xmlnode.GetAttributeAsBool("InheritRDGatewayUseConnectionCredentials");
                     connectionInfo.Inheritance.RDGatewayUsername = xmlnode.GetAttributeAsBool("InheritRDGatewayUsername");
                     connectionInfo.Inheritance.RDGatewayPassword = xmlnode.GetAttributeAsBool("InheritRDGatewayPassword");
+                    connectionInfo.Inheritance.RDGatewayAccessToken = xmlnode.GetAttributeAsBool("InheritRDGatewayAccessToken");
                     connectionInfo.Inheritance.RDGatewayDomain = xmlnode.GetAttributeAsBool("InheritRDGatewayDomain");
                 }
 
@@ -526,14 +570,34 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
                     connectionInfo.VaultOpenbaoSecretEngine = xmlnode.GetAttributeAsEnum("VaultOpenbaoSecretEngine", VaultOpenbaoSecretEngine.Kv);
                     connectionInfo.EC2InstanceId = xmlnode.GetAttributeAsString("EC2InstanceId");
                     connectionInfo.EC2Region = xmlnode.GetAttributeAsString("EC2Region");
+                    connectionInfo.ReplacePluginProperties(PluginConnectionDataSerializer.Deserialize(xmlnode.SelectSingleNode("PluginData")?.InnerText ?? string.Empty));
+                    LegacyPluginDataMigrator.Migrate(connectionInfo);
                     connectionInfo.UseRestrictedAdmin = xmlnode.GetAttributeAsBool("UseRestrictedAdmin");
                     connectionInfo.Inheritance.UseRestrictedAdmin = xmlnode.GetAttributeAsBool("InheritUseRestrictedAdmin");
                     connectionInfo.UseRCG = xmlnode.GetAttributeAsBool("UseRCG");
                     connectionInfo.Inheritance.UseRCG = xmlnode.GetAttributeAsBool("InheritUseRCG");
+                    connectionInfo.UseRedirectionServerName = xmlnode.GetAttributeAsBool("UseRedirectionServerName");
+                    connectionInfo.Inheritance.UseRedirectionServerName = xmlnode.GetAttributeAsBool("InheritUseRedirectionServerName");
                     connectionInfo.RDGatewayExternalCredentialProvider = xmlnode.GetAttributeAsEnum("RDGatewayExternalCredentialProvider", ExternalCredentialProvider.None);
                     connectionInfo.RDGatewayUserViaAPI = xmlnode.GetAttributeAsString("RDGatewayUserViaAPI");
                     connectionInfo.Inheritance.RDGatewayExternalCredentialProvider = xmlnode.GetAttributeAsBool("InheritRDGatewayExternalCredentialProvider");
                     connectionInfo.Inheritance.RDGatewayUserViaAPI = xmlnode.GetAttributeAsBool("InheritRDGatewayUserViaAPI");
+                }
+                else
+                {
+                    // Files older than 2.7 (mRemoteNG 1.76 and earlier) have no RedirectClipboard attribute. Those
+                    // versions never set the option, so the RDP client shared the clipboard by default. Keep it shared
+                    // instead of falling back to ConDefaultRedirectClipboard (false), which silently disabled copy and
+                    // paste for every upgraded connection.
+                    connectionInfo.RedirectClipboard = true;
+                }
+
+                if (_confVersion >= 2.9)
+                {
+                    connectionInfo.Color = xmlnode.GetAttributeAsString("Color");
+                    connectionInfo.Inheritance.Color = xmlnode.GetAttributeAsBool("InheritColor");
+                    connectionInfo.RedirectWebAuthn = xmlnode.GetAttributeAsBool("RedirectWebAuthn");
+                    connectionInfo.Inheritance.RedirectWebAuthn = xmlnode.GetAttributeAsBool("InheritRedirectWebAuthn");
                 }
 
                 switch (_confVersion)

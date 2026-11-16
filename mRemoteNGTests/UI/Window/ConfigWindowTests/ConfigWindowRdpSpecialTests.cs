@@ -86,5 +86,14 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
 
             RunVerification();
         }
+
+        [Test]
+        public void AutomaticResizePropertyHidden_WhenResolutionIsSmartSize()
+        {
+            ConnectionInfo.Resolution = RDPResolutions.SmartSize;
+            ExpectedPropertyList.Remove(nameof(mRemoteNG.Connection.ConnectionInfo.AutomaticResize));
+
+            RunVerification();
+        }
     }
 }

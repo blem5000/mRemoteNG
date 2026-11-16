@@ -18,14 +18,14 @@ namespace mRemoteNG.App
     [SupportedOSPlatform("windows")]
     public static class Shutdown
     {
-        private static string _updateFilePath;
+        private static string? _updateFilePath;
 
         private static bool UpdatePending
         {
             get { return !string.IsNullOrEmpty(_updateFilePath); }
         }
 
-        public static void Quit(string updateFilePath = null)
+        public static void Quit(string? updateFilePath = null)
         {
             _updateFilePath = updateFilePath;
             FrmMain.Default.CloseForQuit();
@@ -42,6 +42,8 @@ namespace mRemoteNG.App
                 StopPuttySessionWatcher();
                 DisposeNotificationAreaIcon();
                 SaveConnections();
+                (Runtime.ConnectionsService.ProfileDataProvider as IDisposable)?.Dispose();
+                Runtime.UserProfileStore?.Dispose();
                 SaveSettings(quickConnectToolStrip, externalToolsToolStrip, multiSshToolStrip, frmMain);
                 UnregisterBrowsers();
             }
@@ -121,10 +123,12 @@ namespace mRemoteNG.App
 
         private static void RunUpdateFile()
         {
-            if (!UpdatePending) return;
+            if (!UpdatePending || string.IsNullOrEmpty(_updateFilePath)) return;
 
-            // Zip packages are unpacked and copied over the installation folder after we exit;
-            // anything else keeps the old "hand it to the shell" behaviour.
+            // Fork: validate the path first (upstream security fix), then let the fork's
+            // installer unpack zip packages and apply them after exit. Anything else keeps
+            // the old "hand it to the shell" behaviour.
+            Tools.PathValidator.ValidateExecutablePathOrThrow(_updateFilePath, nameof(_updateFilePath));
             UpdateInstaller.ApplyOnExit(_updateFilePath);
         }
     }

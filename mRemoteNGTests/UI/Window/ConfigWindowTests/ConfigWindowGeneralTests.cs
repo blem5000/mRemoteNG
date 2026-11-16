@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using mRemoteNG.App;
 using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Connection.Protocol.RDP;
@@ -28,7 +29,16 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
         public void PropertyGridShowCorrectPropertiesForConnectionInfo(ConnectionInfo connectionInfo, IEnumerable<string> expectedVisibleProperties)
         {
             _configWindow.SelectedTreeNode = connectionInfo;
-            Assert.That(_configWindow.VisibleObjectProperties, Is.EquivalentTo(expectedVisibleProperties));
+            Assert.That(_configWindow.VisibleObjectProperties,
+                Is.EquivalentTo(expectedVisibleProperties.Concat(PluginPropertiesFor(connectionInfo))));
+        }
+
+        // FrmMain loads plugins from the application folder, which in a test run is the test
+        // output folder, so the plugins in this test assembly add their properties to the grid
+        // once any test has created it.
+        internal static IEnumerable<string> PluginPropertiesFor(ConnectionInfo connectionInfo)
+        {
+            return Runtime.PluginService.GetConnectionPropertyDefinitions(connectionInfo).Select(definition => definition.Key);
         }
 
         [Test]
@@ -186,7 +196,7 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
                 : new ConnectionInfo();
 
             node.Protocol = protocol;
-            node.Resolution = RDPResolutions.Res800x600;
+            node.Resolution = RDPResolutions.SmartSize;
             node.RDGatewayUsageMethod = RDGatewayUsageMethod.Never;
             node.RDGatewayUseConnectionCredentials = RDGatewayUseConnectionCredentials.Yes;
             node.RedirectSound = RDPSounds.DoNotPlay;
@@ -244,6 +254,7 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
                         nameof(ConnectionInfo.UseCredSsp),
                         nameof(ConnectionInfo.UseRestrictedAdmin),
                         nameof(ConnectionInfo.UseRCG),
+                        nameof(ConnectionInfo.UseRedirectionServerName),
                         nameof(ConnectionInfo.RDGatewayUsageMethod),
                         nameof(ConnectionInfo.Resolution),
                         nameof(ConnectionInfo.Colors),
@@ -262,6 +273,7 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
                         nameof(ConnectionInfo.RedirectClipboard),
                         nameof(ConnectionInfo.RedirectPorts),
                         nameof(ConnectionInfo.RedirectSmartCards),
+                        nameof(ConnectionInfo.RedirectWebAuthn),
                         nameof(ConnectionInfo.RedirectSound),
                         nameof(ConnectionInfo.RedirectAudioCapture),
 			            nameof(ConnectionInfo.RdpVersion),
@@ -270,7 +282,6 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
                         nameof(ConnectionInfo.RDGatewayExternalCredentialProvider),
                         nameof(ConnectionInfo.RDGatewayUserViaAPI),
                         nameof(ConnectionInfo.ExternalCredentialProvider),
-                        nameof(ConnectionInfo.ExternalAddressProvider),
                     });
                     break;
                 case ProtocolType.VNC:
@@ -290,6 +301,7 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
                         nameof(ConnectionInfo.Password),
                         nameof(ConnectionInfo.Port),
                         nameof(ConnectionInfo.SSHOptions),
+                        nameof(ConnectionInfo.TerminalBackend),
                         nameof(ConnectionInfo.PuttySession),
                         nameof(ConnectionInfo.OpeningCommand),
                         nameof(ConnectionInfo.ExternalCredentialProvider),
@@ -302,9 +314,9 @@ namespace mRemoteNGTests.UI.Window.ConfigWindowTests
                         nameof(ConnectionInfo.Password),
                         nameof(ConnectionInfo.Port),
                         nameof(ConnectionInfo.SSHOptions),
+                        nameof(ConnectionInfo.TerminalBackend),
                         nameof(ConnectionInfo.PuttySession),
                         nameof(ConnectionInfo.OpeningCommand),
-                        nameof(ConnectionInfo.ExternalAddressProvider),
                         nameof(ConnectionInfo.ExternalCredentialProvider),
                     });
                     break;

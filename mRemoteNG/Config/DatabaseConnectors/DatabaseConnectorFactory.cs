@@ -1,5 +1,5 @@
-﻿using mRemoteNG.App;
-using mRemoteNG.Security.SymmetricEncryption;
+﻿using mRemoteNG.Security;
+using System;
 using System.Runtime.Versioning;
 
 namespace mRemoteNG.Config.DatabaseConnectors
@@ -14,22 +14,20 @@ namespace mRemoteNG.Config.DatabaseConnectors
             string sqlHost = Properties.OptionsDBsPage.Default.SQLHost;
             string sqlCatalog = Properties.OptionsDBsPage.Default.SQLDatabaseName;
             string sqlUsername = Properties.OptionsDBsPage.Default.SQLUser;
-            LegacyRijndaelCryptographyProvider cryptographyProvider = new();
-            string sqlPassword = cryptographyProvider.Decrypt(Properties.OptionsDBsPage.Default.SQLPass, Runtime.EncryptionKey);
+            string sqlPassword = OptionPasswords.Unprotect(Properties.OptionsDBsPage.Default.SQLPass);
 
             return DatabaseConnector(sqlType, sqlHost, sqlCatalog, sqlUsername, sqlPassword);
         }
 
         public static IDatabaseConnector DatabaseConnector(string type, string server, string database, string username, string password)
         {
-            switch (type)
+            return type switch
             {
-                case "mysql":
-                    return new MySqlDatabaseConnector(server, database, username, password);
-                case "mssql":
-                default:
-                    return new MSSqlDatabaseConnector(server, database, username, password);
-            }
+                "mysql" => new MySqlDatabaseConnector(server, database, username, password),
+                "odbc" => throw new NotSupportedException("ODBC database connections are not supported for schema initialization. Please use a supported database backend."),
+                "mssql" => new MSSqlDatabaseConnector(server, database, username, password),
+                _ => new MSSqlDatabaseConnector(server, database, username, password)
+            };
         }
     }
 }

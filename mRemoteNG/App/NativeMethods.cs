@@ -93,6 +93,9 @@ namespace mRemoteNG.App
         internal static extern long SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        internal static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
@@ -113,46 +116,36 @@ namespace mRemoteNG.App
         [DllImport("user32", ExactSpelling = true, CharSet = CharSet.Ansi, SetLastError = true)]
         internal static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, int uFlags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
         [DllImport("kernel32", SetLastError = true)]
         internal static extern bool CloseHandle(IntPtr handle);
 
         [DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int attributeValue, int attributeSize);
+        internal static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS pMarInset);
 
-        /// <summary>
-        /// Window attribute used to draw a dark (or light) native title bar. It was introduced with
-        /// Windows 10 1903 and the attribute number changed once (19 -> 20) before 20H1 shipped.
-        /// </summary>
-        private const int DwmwaUseImmersiveDarkMode = 20;
-        private const int DwmwaUseImmersiveDarkModeLegacy = 19;
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
-        /// <summary>
-        /// Lets Windows draw the title bar of the given window in dark or light mode. Everything else
-        /// (caption text, buttons) is painted by DWM, so it cannot be themed from WinForms directly.
-        /// </summary>
-        /// <returns><c>true</c> when the requested mode was applied.</returns>
+        // Enables/disables the dark (immersive) title bar. Attribute 20 on Win10 20H1+ (build 19041)
+        // and Win11; 19 on earlier builds. Returns true if the OS accepted the change.
         internal static bool UseImmersiveDarkMode(IntPtr handle, bool enabled)
         {
-            if (handle == IntPtr.Zero) return false;
+            if (handle == IntPtr.Zero)
+                return false;
 
-            int value = enabled ? 1 : 0;
-            try
-            {
-                int result = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref value, sizeof(int));
-                if (result != 0)
-                    // Windows 10 1809 - 1903 used another attribute id
-                    result = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkModeLegacy, ref value, sizeof(int));
-                return result == 0;
-            }
-            catch (DllNotFoundException)
-            {
-                // dwmapi.dll is not available (Windows versions before Vista)
-                return false;
-            }
-            catch (EntryPointNotFoundException)
-            {
-                return false;
-            }
+            int useDark = enabled ? 1 : 0;
+            if (DwmSetWindowAttribute(handle, 20, ref useDark, sizeof(int)) == 0)
+                return true;
+
+            return DwmSetWindowAttribute(handle, 19, ref useDark, sizeof(int)) == 0;
         }
 
         #endregion
@@ -193,6 +186,15 @@ namespace mRemoteNG.App
             public long top;
             public long right;
             public long bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct MARGINS
+        {
+            public int cxLeftWidth;
+            public int cxRightWidth;
+            public int cyTopHeight;
+            public int cyBottomHeight;
         }
 
         #endregion
@@ -238,6 +240,7 @@ namespace mRemoteNG.App
         #region GetWindowLong
 
         public const int GWL_STYLE = (-16);
+        public const int GWL_EXSTYLE = (-20);
 
         #endregion
 
@@ -553,10 +556,27 @@ namespace mRemoteNG.App
 
         #region Window Styles
 
+        public const int WS_BORDER = 0x800000;
+        public const int WS_DLGFRAME = 0x400000;
+        public const int WS_CAPTION = WS_BORDER | WS_DLGFRAME;
+        public const int WS_THICKFRAME = 0x40000;
+        public const int WS_VSCROLL = 0x200000;
+        public const int WS_HSCROLL = 0x100000;
         public const int WS_MAXIMIZE = 0x1000000;
         public const int WS_VISIBLE = 0x10000000;
         public const int WS_CHILD = 0x40000000;
+        public const int WS_MINIMIZEBOX = 0x00020000;
+        public const int WS_MAXIMIZEBOX = 0x00010000;
+        public const int WS_SYSMENU = 0x00080000;
         public const int WS_EX_MDICHILD = 0x40;
+
+        #endregion
+
+        #region Extended Window Styles
+
+        public const int WS_EX_STATICEDGE = 0x00020000;
+        public const int WS_EX_CLIENTEDGE = 0x00000200;
+        public const int WS_EX_WINDOWEDGE = 0x00000100;
 
         #endregion
 
@@ -572,6 +592,8 @@ namespace mRemoteNG.App
         public const uint ECM_FIRST = 0x1500;
         public const uint EM_SETCUEBANNER = ECM_FIRST + 1;
         public const uint EM_GETCUEBANNER = ECM_FIRST + 2;
+        public const uint EM_SETMARGINS = 0xD3;
+        public const int EC_RIGHTMARGIN = 0x2;
 
         #endregion
 

@@ -13,8 +13,25 @@ public class OnePasswordCliException(string message, string arguments) : Excepti
 public class OnePasswordCli
 {
 	private const string OnePasswordCliExecutable = "op.exe";
+
+	// A last resort if op never finishes. op gives up by itself on an authorization nobody answers, after
+	// about two minutes (#3628), and its own message says more than this timeout would.
+	private const int CommandTimeoutMilliseconds = 180_000;
+
+	// Reads run one at a time, so that connections opened together do not start op in parallel.
+	private static readonly SemaphoreSlim AsyncReads = new(1, 1);
+
+	// Username / password purpose metadata is used on Login category item fields
 	private const string UserNamePurpose = "USERNAME";
 	private const string PasswordPurpose = "PASSWORD";
+	
+	// Server category items (and perhaps others) do have a built-in username/password field but don't have the `purpose` set
+	// and because it's a built-in field this can't be set afterwards.
+	// We use the label for as fallback because that can be user-modified to fit this convention in all cases.
+	private const string UserNameLabel = "username";
+	private const string PasswordLabel = "password";
+	
+	
 	private const string StringType = "STRING";
 	private const string SshKeyType = "SSHKEY";
 	private const string DomainLabel = "domain";
@@ -40,47 +57,94 @@ public class OnePasswordCli
 		ItemGet(item, vault, account, out username, out password, out domain, out privateKey);
 	}
 
-	private static void ItemGet(string item, string? vault, string? account, out string username, out string password, out string domain, out string privateKey)
+	/// <summary>
+	/// Reads <paramref name="input"/> like <see cref="ReadPassword(string, out string, out string, out string, out string)"/>,
+	/// unless there is a <paramref name="readAhead"/>, which is used even if the reference was changed while it was read:
+	/// the connection keeps the reference it had when it was opened, and reading again here would run op on the UI
+	/// thread (#3628).
+	/// </summary>
+	public static void ReadPassword(OnePasswordRead? readAhead, string input, ref string username, ref string password, ref string domain, ref string privateKey)
 	{
-		var args = new List<string> { "item", "get", item };
-
-		if (!string.IsNullOrEmpty(account))
-		{
-			args.Add("--account");
-			args.Add(account);
-		}
-
-		if (!string.IsNullOrEmpty(vault))
-		{
-			args.Add("--vault");
-			args.Add(vault);
-		}
-
-		args.Add("--format");
-		args.Add("json");
-
-		var exitCode = RunCommand(OnePasswordCliExecutable, args, out var output, out var error);
-		if (exitCode != 0)
-		{
-			username = string.Empty;
-			password = string.Empty;
-			privateKey = string.Empty;
-			domain = string.Empty;
-			throw new OnePasswordCliException($"Error running op item get: {error}",
-				OnePasswordCliExecutable + " " + string.Join(' ', args));
-		}
-
-		var items = JsonSerializer.Deserialize<VaultItem>(output, JsonSerializerOptions) ??
-		            throw new OnePasswordCliException("1Password returned null",
-			            OnePasswordCliExecutable + " " + string.Join(' ', args));
-		username = items.Fields?.FirstOrDefault(x => x.Purpose == UserNamePurpose)?.Value ?? string.Empty;
-		password = items.Fields?.FirstOrDefault(x => x.Purpose == PasswordPurpose)?.Value ?? string.Empty;
-		privateKey = items.Fields?.FirstOrDefault(x => x.Type == SshKeyType)?.Value ?? string.Empty;
-		domain = items.Fields?.FirstOrDefault(x => x.Type == StringType && x.Label == DomainLabel)?.Value ?? string.Empty;
+		if (readAhead != null)
+			readAhead.Apply(ref username, ref password, ref domain, ref privateKey);
+		else
+			ReadPassword(input, out username, out password, out domain, out privateKey);
 	}
 
-	private static int RunCommand(string command, IReadOnlyCollection<string> arguments, out string output,
-		out string error)
+	/// <summary>
+	/// Reads <paramref name="input"/> like <see cref="ReadPassword(string, out string, out string, out string, out string)"/>,
+	/// on a thread pool thread, so that the caller's thread is free while op waits, for instance for the
+	/// 1Password authorization prompt, which stays blank while the UI thread of mRemoteNG is blocked (#3628).
+	/// It does not throw: what ReadPassword throws is kept in the result, and thrown when the result is used.
+	/// </summary>
+	public static async Task<OnePasswordRead> ReadPasswordAsync(string input)
+	{
+		await AsyncReads.WaitAsync().ConfigureAwait(false);
+		try
+		{
+			return await Task.Run(() => new OnePasswordRead(input)).ConfigureAwait(false);
+		}
+		finally
+		{
+			AsyncReads.Release();
+		}
+	}
+
+	private static void ItemGet(string item, string? vault, string? account, out string username, out string password, out string domain, out string privateKey)
+    {
+        var args = new List<string> { "item", "get", item };
+
+        if (!string.IsNullOrEmpty(account))
+        {
+            args.Add("--account");
+            args.Add(account);
+        }
+
+        if (!string.IsNullOrEmpty(vault))
+        {
+            args.Add("--vault");
+            args.Add(vault);
+        }
+
+        args.Add("--format");
+        args.Add("json");
+
+		string commandLine = OnePasswordCliExecutable + " " + string.Join(' ', args);
+            
+        var exitCode = RunCommand(OnePasswordCliExecutable, args, out var output, out var error);
+        if (exitCode != 0)
+        {
+            username = string.Empty;
+            password = string.Empty;
+            privateKey = string.Empty;
+            domain = string.Empty;
+            throw new OnePasswordCliException($"Error running op item get: {error}",
+                commandLine);
+        }
+
+        var items = JsonSerializer.Deserialize<VaultItem>(output, JsonSerializerOptions) ??
+                    throw new OnePasswordCliException("1Password returned null",
+                        commandLine);
+        username = FindField(items, UserNamePurpose, UserNameLabel);
+        password = FindField(items, PasswordPurpose, PasswordLabel);
+        privateKey = items.Fields?.FirstOrDefault(x => x.Type == SshKeyType)?.Value ?? string.Empty;
+        domain = items.Fields?.FirstOrDefault(x => x.Type == StringType && x.Label == DomainLabel)?.Value ?? string.Empty;
+		if(string.IsNullOrEmpty(password) && string.IsNullOrEmpty(privateKey))
+		{
+			throw new OnePasswordCliException("No secret found in 1Password. At least fields with labels username/password or a SshKey are expected.", commandLine);
+		}
+    }
+
+    private static string FindField(VaultItem items, string purpose, string fallbackLabel)
+    {
+        return items.Fields?.FirstOrDefault(x => x.Purpose == purpose)?.Value ??
+			items.Fields?.FirstOrDefault(x => x.Type == StringType && string.Equals(x.Id, fallbackLabel, StringComparison.InvariantCultureIgnoreCase))?.Value ??
+		 	items.Fields?.FirstOrDefault(x => x.Type == StringType && string.Equals(x.Label, fallbackLabel, StringComparison.InvariantCultureIgnoreCase))?.Value ??
+		 	string.Empty;
+    }
+
+    internal static int RunCommand(string command, IReadOnlyCollection<string> arguments, out string output,
+		out string error, int timeoutMilliseconds = CommandTimeoutMilliseconds)
 	{
 		var processStartInfo = new ProcessStartInfo
 		{
@@ -99,9 +163,17 @@ public class OnePasswordCli
 		using var process = new Process();
 		process.StartInfo = processStartInfo;
 		process.Start();
-		output = process.StandardOutput.ReadToEnd();
-		error = process.StandardError.ReadToEnd();
-		process.WaitForExit();
+		// Both pipes are read at once: reading one to the end first hangs if op fills the other one meanwhile.
+		Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+		Task<string> errorTask = process.StandardError.ReadToEndAsync();
+		if (!process.WaitForExit(timeoutMilliseconds))
+		{
+			process.Kill(entireProcessTree: true);
+			throw new OnePasswordCliException($"{command} did not finish within {timeoutMilliseconds / 1000} seconds and was stopped",
+				command + " " + string.Join(' ', arguments));
+		}
+		output = outputTask.GetAwaiter().GetResult();
+		error = errorTask.GetAwaiter().GetResult();
 		return process.ExitCode;
 	}
 }

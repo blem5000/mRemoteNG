@@ -98,6 +98,18 @@ namespace mRemoteNG.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool RdpSendDesktopScaleFactor {
+            get {
+                return ((bool)(this["RdpSendDesktopScaleFactor"]));
+            }
+            set {
+                this["RdpSendDesktopScaleFactor"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool cbAdvancedPageInOptionMenu {
             get {
                 return ((bool)(this["cbAdvancedPageInOptionMenu"]));
@@ -116,6 +128,30 @@ namespace mRemoteNG.Properties {
             }
             set {
                 this["NoReconnect"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowPuttySessionsInTree {
+            get {
+                return ((bool)(this["ShowPuttySessionsInTree"]));
+            }
+            set {
+                this["ShowPuttySessionsInTree"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UseUserProfiles {
+            get {
+                return ((bool)(this["UseUserProfiles"]));
+            }
+            set {
+                this["UseUserProfiles"] = value;
             }
         }
     }

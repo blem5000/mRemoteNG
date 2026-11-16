@@ -115,6 +115,13 @@ namespace mRemoteNG.UI.Forms
         [Conditional("PORTABLE")]
         private void AddPortableString() => lblTitle.Text += $@" {Language.PortableEdition}";
 
+        // Upstream: apply the dark/light title bar before the window is shown to avoid a white flash.
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
+        }
+
         private void ApplyTheme()
         {
             if (!ThemeManager.getInstance().ThemingActive) return;

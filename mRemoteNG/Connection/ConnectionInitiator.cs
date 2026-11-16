@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using mRemoteNG.App;
 using mRemoteNG.Connection.Protocol;
@@ -22,23 +23,39 @@ namespace mRemoteNG.Connection
         private readonly PanelAdder _panelAdder = new();
         private readonly List<string> _activeConnections = [];
 
+        // The tabs of connections that are still being opened, before their protocol is attached, with the
+        // connection from the tree that each one opens
+        private readonly Dictionary<ConnectionTab, ConnectionInfo> _openingTabs = new();
+
         public IEnumerable<string> ActiveConnections => _activeConnections;
 
         public bool SwitchToOpenConnection(ConnectionInfo connectionInfo)
         {
             InterfaceControl interfaceControl = FindConnectionContainer(connectionInfo);
-            if (interfaceControl == null) return false;
-            ConnectionTab connT = (ConnectionTab)interfaceControl.FindForm();
+            ConnectionTab connT;
+            if (interfaceControl != null)
+            {
+                connT = (ConnectionTab)interfaceControl.FindForm();
+            }
+            else
+            {
+                // A connection that is still being opened, for instance while its credentials are read from
+                // 1Password, has a tab but no InterfaceControl yet
+                connT = _openingTabs.FirstOrDefault(opening => ReferenceEquals(opening.Value, connectionInfo) && !opening.Key.IsDisposed).Key;
+                if (connT == null) return false;
+            }
+
             connT?.Focus();
-            ConnectionTab findForm = (ConnectionTab)interfaceControl.FindForm();
-            findForm?.Show(findForm.DockPanel);
+            connT?.Show(connT.DockPanel);
             return true;
         }
 
         public void OpenConnection(
             ContainerInfo containerInfo,
             ConnectionInfo.Force force = ConnectionInfo.Force.None,
-            ConnectionWindow conForm = null)
+            ConnectionWindow conForm = null,
+            DockPane targetPane = null,
+            int? targetContentIndex = null)
         {
             if (containerInfo == null || containerInfo.Children.Count == 0)
                 return;
@@ -46,9 +63,9 @@ namespace mRemoteNG.Connection
             foreach (ConnectionInfo child in containerInfo.Children)
             {
                 if (child is ContainerInfo childAsContainer)
-                    OpenConnection(childAsContainer, force, conForm);
+                    OpenConnection(childAsContainer, force, conForm, targetPane, targetContentIndex);
                 else
-                    OpenConnection(child, force, conForm);
+                    OpenConnection(child, force, conForm, targetPane, targetContentIndex);
             }
         }
 
@@ -56,25 +73,18 @@ namespace mRemoteNG.Connection
         public async void OpenConnection(
             ConnectionInfo connectionInfo,
             ConnectionInfo.Force force = ConnectionInfo.Force.None,
-            ConnectionWindow conForm = null)
+            ConnectionWindow conForm = null,
+            DockPane targetPane = null,
+            int? targetContentIndex = null,
+            DockContent? targetPanePlaceholder = null)
         {
             if (connectionInfo == null)
                 return;
 
+            ConnectionTab openingTab = null;
             try
             {
-                if (!string.IsNullOrEmpty(connectionInfo.EC2InstanceId))
-                {
-                    try
-                    {
-                        string host = await ExternalConnectors.AWS.EC2FetchDataService.GetEC2InstanceDataAsync("AWSAPI:" + connectionInfo.EC2InstanceId, connectionInfo.EC2Region);
-                        if (!string.IsNullOrEmpty(host))
-                            connectionInfo.Hostname = host;
-                    }
-                    catch
-                    {
-                    }
-                }
+                await Runtime.PluginService.ResolveConnectionAddressAsync(connectionInfo);
 
                 if (string.IsNullOrEmpty(connectionInfo.Hostname))
                 {
@@ -149,7 +159,14 @@ namespace mRemoteNG.Connection
 
                     SetConnectionFormEventHandlers(protocolSshTunnel, connectionForm);
                     SetConnectionEventHandlers(protocolSshTunnel);
-                    connectionContainer = SetConnectionContainer(connectionInfo, connectionForm);
+                    connectionContainer = SetConnectionContainer(connectionInfo, connectionForm, targetPane, targetContentIndex);
+                    openingTab = AddOpeningTab(connectionContainer, connectionInfoOriginal);
+
+                    // The UI thread stays free while credentials are read from 1Password (#3628), so the tab can be closed meanwhile.
+                    // The protocol is attached to the tab only afterwards, so that nothing in the UI reaches it before Initialize.
+                    await protocolSshTunnel.ReadExternalCredentialsAsync(connectionInfoSshTunnel);
+                    if (connectionContainer.IsDisposed) return;
+
                     BuildConnectionInterfaceController(connectionInfoSshTunnel, protocolSshTunnel, connectionContainer);
                     protocolSshTunnel.InterfaceControl.OriginalInfo = connectionInfoSshTunnel;
 
@@ -222,15 +239,22 @@ namespace mRemoteNG.Connection
                 SetConnectionFormEventHandlers(newProtocol, connectionForm);
                 SetConnectionEventHandlers(newProtocol);
                 // in case of connection through SSH tunnel the container is already defined and must be use, else it needs to be created here
-                if (connectionContainer == null) connectionContainer = SetConnectionContainer(connectionInfo, connectionForm);
+                if (connectionContainer == null) connectionContainer = SetConnectionContainer(connectionInfo, connectionForm, targetPane, targetContentIndex);
+                openingTab ??= AddOpeningTab(connectionContainer, connectionInfoOriginal);
+
+                newProtocol.Force = force;
+
+                // The UI thread stays free while credentials are read from 1Password (#3628), so the tab can be closed meanwhile.
+                // The protocol is attached to the tab only afterwards, so that nothing in the UI reaches it before Initialize.
+                await newProtocol.ReadExternalCredentialsAsync(connectionInfo);
+                if (connectionContainer.IsDisposed) return;
+
                 BuildConnectionInterfaceController(connectionInfo, newProtocol, connectionContainer);
                 // in case of connection through SSH tunnel the connectionInfo was modified but connectionInfoOriginal in all cases retains the original info
                 // and is stored in interface control for further use
                 newProtocol.InterfaceControl.OriginalInfo = connectionInfoOriginal;
                 // SSH tunnel connection is stored in Interface Control to be used in log messages etc
                 newProtocol.InterfaceControl.SSHTunnelInfo = connectionInfoSshTunnel;
-
-                newProtocol.Force = force;
 
                 if (newProtocol.Initialize() == false)
                 {
@@ -251,6 +275,13 @@ namespace mRemoteNG.Connection
             catch (Exception ex)
             {
                 Runtime.MessageCollector.AddExceptionStackTrace(Language.ConnectionOpenFailed, ex);
+            }
+            finally
+            {
+                if (openingTab != null)
+                    _openingTabs.Remove(openingTab);
+                if (targetPanePlaceholder is { IsDisposed: false })
+                    targetPanePlaceholder.Close();
             }
         }
 
@@ -293,7 +324,8 @@ namespace mRemoteNG.Connection
                 if (!(connectionWindow.Controls[0] is DockPanel cwDp)) continue;
                 foreach (IDockContent dockContent in cwDp.Documents)
                 {
-                    ConnectionTab tab = (ConnectionTab)dockContent;
+                    // A connection panel can also hold the Options window and plugin windows.
+                    if (dockContent is not ConnectionTab tab) continue;
                     InterfaceControl ic = InterfaceControl.FindInterfaceControl(tab);
                     if (ic == null) continue;
                     if (ic.Info == connectionInfo || ic.OriginalInfo == connectionInfo)
@@ -309,6 +341,11 @@ namespace mRemoteNG.Connection
             if (connectionInfo.Panel != "" && !force.HasFlag(ConnectionInfo.Force.OverridePanel) && !Properties.OptionsTabsPanelsPage.Default.AlwaysShowPanelSelectionDlg)
                 return connectionInfo.Panel;
 
+            if (!Properties.OptionsTabsPanelsPage.Default.AlwaysShowPanelSelectionDlg)
+            {
+                return PanelAdder.DefaultPanelName;
+            }
+
             FrmChoosePanel frmPnl = new();
             return frmPnl.ShowDialog() == DialogResult.OK
                 ? frmPnl.Panel
@@ -320,18 +357,21 @@ namespace mRemoteNG.Connection
             ConnectionWindow connectionForm = conForm ?? Runtime.WindowList.FromString(connectionPanel) as ConnectionWindow;
 
             if (connectionForm == null)
-                // Don't show the panel immediately - it will be shown when first tab is added
-                connectionForm = _panelAdder.AddPanel(connectionPanel, showImmediately: false);
+            {
+                connectionForm = _panelAdder.AddPanel(connectionPanel, showImmediately: true);
+            }
             else
+            {
                 connectionForm.Show(FrmMain.Default.pnlDock);
+            }
 
             connectionForm.Focus();
             return connectionForm;
         }
 
-        private static Control SetConnectionContainer(ConnectionInfo connectionInfo, ConnectionWindow connectionForm)
+        private static Control SetConnectionContainer(ConnectionInfo connectionInfo, ConnectionWindow connectionForm, DockPane targetPane = null, int? targetContentIndex = null)
         {
-            Control connectionContainer = connectionForm.AddConnectionTab(connectionInfo);
+            Control connectionContainer = connectionForm.AddConnectionTab(connectionInfo, targetPane, targetContentIndex);
 
             if (connectionInfo.Protocol != ProtocolType.IntApp) return connectionContainer;
 
@@ -343,6 +383,14 @@ namespace mRemoteNG.Connection
                 ((ConnectionTab)connectionContainer).Icon = extT.Icon;
 
             return connectionContainer;
+        }
+
+        // Until OpenConnection is done with it, opening the connection again switches to this tab (SwitchToOpenConnection)
+        private ConnectionTab AddOpeningTab(Control connectionContainer, ConnectionInfo connectionInfo)
+        {
+            if (connectionContainer is not ConnectionTab tab) return null;
+            _openingTabs[tab] = connectionInfo;
+            return tab;
         }
 
         private static void SetConnectionFormEventHandlers(ProtocolBase newProtocol, Form connectionForm)
@@ -425,9 +473,15 @@ namespace mRemoteNG.Connection
                     connDetail = "UNKNOWN";
 
                 Runtime.MessageCollector.AddMessage(MessageClass.InformationMsg, string.Format(Language.ConnenctionClosedByUser, connDetail, prot.InterfaceControl.Info.Protocol, Environment.UserName));
-                prot.InterfaceControl.OriginalInfo.OpenConnections.Remove(prot);
-                if (_activeConnections.Contains(prot.InterfaceControl.Info.ConstantID))
+                // Only a protocol that connected is in both lists. One closed before that, because it could not
+                // initialize or connect, shares the ID of any other attempt at the same connection that did
+                // connect, and must not remove it.
+                ProtocolList openConnections = prot.InterfaceControl.OriginalInfo.OpenConnections;
+                if (openConnections.Contains(prot))
+                {
+                    openConnections.Remove(prot);
                     _activeConnections.Remove(prot.InterfaceControl.Info.ConstantID);
+                }
 
                 if (prot.InterfaceControl.Info.PostExtApp == "") return;
                 Tools.ExternalTool extA = Runtime.ExternalToolsService.GetExtAppByName(prot.InterfaceControl.Info.PostExtApp);

@@ -7,6 +7,7 @@ using mRemoteNG.Connection;
 using mRemoteNG.Container;
 using mRemoteNG.Themes;
 using mRemoteNG.Resources.Language;
+using mRemoteNG.Security;
 using System.Runtime.Versioning;
 
 namespace mRemoteNG.UI.Forms
@@ -138,6 +139,11 @@ namespace mRemoteNG.UI.Forms
             SelectedFolder = null;
             SelectedConnection = null;
             btnOK.Enabled = false;
+            SaveFilter exportFilter = new SaveFilter().RestrictForExport();
+            chkPassword.Enabled = exportFilter.SavePassword;
+            chkPassword.Checked = exportFilter.SavePassword;
+            chkUsername.Enabled = exportFilter.SaveUsername;
+            chkUsername.Checked = exportFilter.SaveUsername;
         }
 
         #endregion
@@ -228,6 +234,13 @@ namespace mRemoteNG.UI.Forms
         }
 
         #endregion
+
+        // Apply the dark/light title bar before the window is shown to avoid a white flash.
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
+        }
 
         private void ApplyTheme()
         {

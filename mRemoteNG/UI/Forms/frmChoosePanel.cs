@@ -40,6 +40,13 @@ namespace mRemoteNG.UI.Forms
             Text = Language.TitleSelectPanel;
         }
 
+        // Apply the dark/light title bar before the window is shown to avoid a white flash.
+        protected override void OnHandleCreated(System.EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
+        }
+
         private void ApplyTheme()
         {
             ThemeManager.getInstance().ApplyThemeToTitleBar(this);

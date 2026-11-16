@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
 using BrightIdeasSoftware;
@@ -32,10 +33,39 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
 
         private readonly ConnectionTreeSearchTextFilter _connectionTreeSearchTextFilter = new();
 
+        // Folders the search filter expanded to reveal matches; collapsed again when the filter is cleared.
+        private readonly HashSet<ContainerInfo> _containersExpandedByFilter = new();
+
+        // ContainerInfo.IsExpanded is saved to the connections file, and changing it counts as an
+        // edit (save + rolling backup when saving on edit). Expansion done only to show search
+        // results must not touch it, or every keystroke in the search box rewrites the file.
+        private bool _filterIsChangingExpansion;
+
         private bool _nodeInEditMode;
         private bool _allowEdit;
         private ConnectionContextMenu _contextMenu;
         private ConnectionTreeModel _connectionTreeModel;
+        private ISlowClickRenameHandler? _slowClickRenameHandler;
+
+        // Number of direct children currently allowed to be shown for a container
+        // that is mid-animation. Containers not present in this dictionary show
+        // all of their children (the normal, non-animated state).
+        private readonly Dictionary<ContainerInfo, int> _revealLimits = new();
+
+        // Containers currently animating. Value is true while expanding (growing
+        // the reveal limit towards the full child count) and false while
+        // collapsing (shrinking the reveal limit towards zero).
+        private readonly Dictionary<ContainerInfo, bool> _activeAnimations = new();
+        private readonly Dictionary<ContainerInfo, Stopwatch> _animationStopwatches = new();
+
+        // Guards against our own programmatic Collapse() call (issued once the
+        // shrink animation reaches zero) being cancelled a second time by
+        // ConnectionTree_Collapsing.
+        private readonly HashSet<ContainerInfo> _collapseFinalizing = new();
+
+        private const int MaxAnimationDurationMs = 180;
+        private const int MinRowsPerTick = 1;
+        private readonly Timer _expandCollapseAnimationTimer = new() { Interval = 15 };
 
         public ConnectionInfo SelectedNode => (ConnectionInfo)SelectedObject;
 
@@ -73,6 +103,7 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             _themeManager = ThemeManager.getInstance();
             _themeManager.ThemeChanged += ThemeManagerOnThemeChanged;
             ApplyTheme();
+            _expandCollapseAnimationTimer.Tick += ExpandCollapseAnimationTimer_Tick;
         }
 
         private void ThemeManagerOnThemeChanged()
@@ -101,8 +132,12 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             {
                 components?.Dispose();
                 _statusImageList?.Dispose();
+                _slowClickRenameHandler?.Dispose();
 
                 _themeManager.ThemeChanged -= ThemeManagerOnThemeChanged;
+
+                _expandCollapseAnimationTimer.Tick -= ExpandCollapseAnimationTimer_Tick;
+                _expandCollapseAnimationTimer.Dispose();
             }
 
             base.Dispose(disposing);
@@ -119,6 +154,18 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             ContextMenuStrip = _contextMenu;
             SetupDropSink();
             SetEventHandlers();
+            SetupSlowClickRename();
+        }
+
+        internal void SetupSlowClickRename()
+        {
+            _slowClickRenameHandler?.Dispose();
+            _slowClickRenameHandler = Settings.Default.SlowClickRenameEnabled
+                ? new SlowClickRenameHandler(
+                    new SlowClickRenameTimer(SystemInformation.DoubleClickTime),
+                    RenameSelectedNode,
+                    () => SelectedNode)
+                : null;
         }
 
         private void AddColumns(ImageGetterDelegate imageGetterDelegate)
@@ -131,9 +178,56 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             CanExpandGetter = item =>
             {
                 ContainerInfo itemAsContainer = item as ContainerInfo;
-                return itemAsContainer?.Children.Count > 0;
+                return GetVisibleChildren(itemAsContainer).Count > 0;
             };
-            ChildrenGetter = item => ((ContainerInfo)item).Children;
+            ChildrenGetter = item => GetVisibleChildren(item as ContainerInfo);
+        }
+
+        /// <summary>
+        /// Returns the children of the given container that should be displayed nested
+        /// beneath it. Children flagged as <see cref="ContainerInfo.IsRootGroup"/> are
+        /// excluded here because they are displayed flattened as top-level root peers instead.
+        /// </summary>
+        private static List<ConnectionInfo> GetVisibleChildren(ContainerInfo container)
+        {
+            if (container == null)
+                return new List<ConnectionInfo>();
+
+            return container.Children
+                             .Where(child => child is not ContainerInfo { IsRootGroup: true })
+                             .ToList();
+        }
+
+        /// <summary>
+        /// Returns the full set of objects that should be rendered as top-level roots in the
+        /// tree: the model's own root nodes, plus any descendant container flagged as
+        /// <see cref="ContainerInfo.IsRootGroup"/> (displayed flattened as an extra root).
+        /// </summary>
+        private static List<object> GetTreeRoots(ConnectionTreeModel model)
+        {
+            List<object> roots = new(model.RootNodes);
+
+            foreach (ContainerInfo rootNode in model.RootNodes)
+            {
+                roots.AddRange(GetRootGroupsRecursive(rootNode));
+            }
+
+            return roots;
+        }
+
+        private static IEnumerable<ContainerInfo> GetRootGroupsRecursive(ContainerInfo container)
+        {
+            foreach (ConnectionInfo child in container.Children)
+            {
+                if (child is not ContainerInfo childContainer)
+                    continue;
+
+                if (childContainer.IsRootGroup)
+                    yield return childContainer;
+
+                foreach (ContainerInfo nested in GetRootGroupsRecursive(childContainer))
+                    yield return nested;
+            }
         }
 
         private void SetupDropSink()
@@ -146,16 +240,20 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
 
         private void SetEventHandlers()
         {
+            Expanding += ConnectionTree_Expanding;
+            Collapsing += ConnectionTree_Collapsing;
             Collapsed += (sender, args) =>
             {
                 if (args.Model is not ContainerInfo container) return;
-                container.IsExpanded = false;
+                if (!_filterIsChangingExpansion)
+                    container.IsExpanded = false;
                 AutoResizeColumn(Columns[0]);
             };
             Expanded += (sender, args) =>
             {
                 if (args.Model is not ContainerInfo container) return;
-                container.IsExpanded = true;
+                if (!_filterIsChangingExpansion)
+                    container.IsExpanded = true;
                 AutoResizeColumn(Columns[0]);
             };
             SelectionChanged += TvConnections_AfterSelect;
@@ -164,9 +262,182 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             CellToolTipShowing += TvConnections_CellToolTipShowing;
             ModelCanDrop += _dragAndDropHandler.HandleEvent_ModelCanDrop;
             ModelDropped += _dragAndDropHandler.HandleEvent_ModelDropped;
-            BeforeLabelEdit += OnBeforeLabelEdit;
-            AfterLabelEdit += OnAfterLabelEdit;
+            CellEditStarting += OnCellEditStarting;
+            CellEditFinishing += OnCellEditFinishing;
+            // ObjectListView raises FormatCell only when this is on, and Color is applied there.
+            UseCellFormatEvents = true;
             FormatCell += ConnectionTree_FormatCell;
+        }
+
+        /// <summary>
+        /// Instead of letting the branch insert all of its children at once,
+        /// start with a single child visible and grow the reveal limit on a
+        /// timer so children slide into view progressively.
+        /// </summary>
+        private void ConnectionTree_Expanding(object sender, TreeBranchExpandingEventArgs e)
+        {
+            if (!ExpandCollapseAnimationsAllowed)
+                return;
+
+            if (e.Model is not ContainerInfo container || container.Children.Count == 0)
+                return;
+
+            // TreeListView raises Expanding before it knows whether Expand() will no-op.
+            // Skip animation state changes for already-expanded branches.
+            if (IsExpanded(container))
+                return;
+
+            _revealLimits[container] = Math.Min(1, container.Children.Count);
+            _activeAnimations[container] = true;
+            _animationStopwatches[container] = Stopwatch.StartNew();
+            StartAnimationTimerIfNeeded();
+        }
+
+        /// <summary>
+        /// Cancels the default (instant) collapse and instead shrinks the
+        /// reveal limit down to zero on a timer, so children disappear
+        /// progressively before the branch is actually collapsed.
+        /// </summary>
+        private void ConnectionTree_Collapsing(object sender, TreeBranchCollapsingEventArgs e)
+        {
+            if (e.Model is not ContainerInfo container)
+                return;
+
+            // This is our own programmatic Collapse() call, issued once the
+            // shrink animation has finished. Let it proceed normally.
+            if (_collapseFinalizing.Remove(container))
+                return;
+
+            if (!ExpandCollapseAnimationsAllowed || container.Children.Count == 0)
+                return;
+
+            e.Canceled = true;
+
+            _revealLimits[container] = _revealLimits.TryGetValue(container, out int currentLimit)
+                ? Math.Min(currentLimit, container.Children.Count)
+                : container.Children.Count;
+            _activeAnimations[container] = false;
+            _animationStopwatches[container] = Stopwatch.StartNew();
+            StartAnimationTimerIfNeeded();
+        }
+
+        /// <summary>
+        /// Determines whether the connection tree's expand/collapse animation
+        /// should run. Disabled when the user has High Contrast mode enabled
+        /// (a signal that reduced/no motion effects are preferred), or when
+        /// the user has turned off connection tree animations in
+        /// Options > Appearance.
+        /// </summary>
+        private static bool ExpandCollapseAnimationsAllowed =>
+            !SystemInformation.HighContrast &&
+            SystemInformation.IsMenuAnimationEnabled &&
+            Properties.OptionsAppearancePage.Default.EnableConnectionTreeAnimations;
+
+        private void StartAnimationTimerIfNeeded()
+        {
+            if (!_expandCollapseAnimationTimer.Enabled)
+                _expandCollapseAnimationTimer.Start();
+        }
+
+        private void ExpandCollapseAnimationTimer_Tick(object sender, EventArgs e)
+        {
+            if (_activeAnimations.Count == 0)
+            {
+                _expandCollapseAnimationTimer.Stop();
+                return;
+            }
+
+            List<ContainerInfo> finishedExpansions = new();
+            List<ContainerInfo> finishedCollapses = new();
+
+            foreach (KeyValuePair<ContainerInfo, bool> entry in _activeAnimations)
+            {
+                AdvanceContainerAnimation(entry.Key, entry.Value, finishedExpansions, finishedCollapses);
+            }
+
+            FinalizeFinishedExpansions(finishedExpansions);
+            FinalizeFinishedCollapses(finishedCollapses);
+
+            if (_activeAnimations.Count == 0)
+            {
+                AutoResizeColumn(Columns[0]);
+                _expandCollapseAnimationTimer.Stop();
+            }
+        }
+
+        /// <summary>
+        /// Advances the reveal limit for a single container by one animation tick and
+        /// records the container as finished if its expansion or collapse has completed.
+        /// </summary>
+        private void AdvanceContainerAnimation(ContainerInfo container, bool isExpanding,
+            List<ContainerInfo> finishedExpansions, List<ContainerInfo> finishedCollapses)
+        {
+            int totalChildren = container.Children.Count;
+            int currentLimit = _revealLimits.TryGetValue(container, out int limit) ? limit : 0;
+
+            int rowsToAdvance = CalculateRowsPerTick(container, totalChildren, currentLimit, isExpanding);
+
+            if (isExpanding)
+            {
+                currentLimit = Math.Min(totalChildren, currentLimit + rowsToAdvance);
+                _revealLimits[container] = currentLimit;
+                RefreshObject(container);
+
+                if (currentLimit >= totalChildren)
+                    finishedExpansions.Add(container);
+            }
+            else
+            {
+                currentLimit = Math.Max(0, currentLimit - rowsToAdvance);
+                _revealLimits[container] = currentLimit;
+                RefreshObject(container);
+
+                if (currentLimit <= 0)
+                    finishedCollapses.Add(container);
+            }
+        }
+
+        private void FinalizeFinishedExpansions(List<ContainerInfo> finishedExpansions)
+        {
+            foreach (ContainerInfo container in finishedExpansions)
+            {
+                _activeAnimations.Remove(container);
+                _revealLimits.Remove(container);
+                _animationStopwatches.Remove(container);
+                RefreshObject(container);
+            }
+        }
+
+        private void FinalizeFinishedCollapses(List<ContainerInfo> finishedCollapses)
+        {
+            foreach (ContainerInfo container in finishedCollapses)
+            {
+                _activeAnimations.Remove(container);
+                _collapseFinalizing.Add(container);
+                Collapse(container);
+                _revealLimits.Remove(container);
+                _animationStopwatches.Remove(container);
+            }
+        }
+
+        private int CalculateRowsPerTick(ContainerInfo container, int totalChildren, int currentLimit, bool isExpanding)
+        {
+            if (!_animationStopwatches.TryGetValue(container, out Stopwatch stopwatch))
+            {
+                stopwatch = Stopwatch.StartNew();
+                _animationStopwatches[container] = stopwatch;
+            }
+
+            int elapsedMs = (int)Math.Min(stopwatch.ElapsedMilliseconds, MaxAnimationDurationMs);
+            int ticksRemaining = Math.Max(1, (MaxAnimationDurationMs - elapsedMs + _expandCollapseAnimationTimer.Interval - 1) / _expandCollapseAnimationTimer.Interval);
+            int remainingRows = isExpanding
+                ? Math.Max(0, totalChildren - currentLimit)
+                : currentLimit;
+
+            if (remainingRows <= 0)
+                return MinRowsPerTick;
+
+            return Math.Max(MinRowsPerTick, (int)Math.Ceiling(remainingRows / (double)ticksRemaining));
         }
 
         /// <summary>
@@ -197,11 +468,26 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
 
         private void PopulateTreeView(ConnectionTreeModel newModel)
         {
-            SetObjects(newModel.RootNodes);
+            SetObjects(GetTreeRoots(newModel));
             RegisterModelUpdateHandlers(newModel);
             NodeSearcher = new NodeSearcher(newModel);
             ExecutePostSetupActions();
             AutoResizeColumn(Columns[0]);
+        }
+
+        /// <summary>
+        /// Recomputes the flattened root list (model root nodes + any IsRootGroup-flagged
+        /// descendants) and re-applies it to the tree, preserving expand/selection state.
+        /// </summary>
+        private void RefreshTreeRoots()
+        {
+            SetObjects(GetTreeRoots(ConnectionTreeModel));
+            AutoResizeColumn(Columns[0]);
+        }
+
+        internal void RefreshVisibleRoots()
+        {
+            RefreshTreeRoots();
         }
 
         private void RegisterModelUpdateHandlers(ConnectionTreeModel newModel)
@@ -232,6 +518,13 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             // for some reason property changed events are getting triggered twice for each changed property. should be just once. cant find source of duplication
             // Removed "TO DO" from above comment. Per #142 it apperas that this no longer occurs with ObjectListView 2.9.1
             string property = propertyChangedEventArgs.PropertyName;
+
+            if (property == nameof(ContainerInfo.IsRootGroup))
+            {
+                RefreshTreeRoots();
+                return;
+            }
+
             if (property != nameof(ConnectionInfo.Name)
              && property != nameof(ConnectionInfo.OpenConnections)
              && property != nameof(ConnectionInfo.Icon))
@@ -270,7 +563,19 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
 
         public void InvokeExpand(object model)
         {
-            Invoke(() => Expand(model));
+            Invoke(() => ExpandWithoutAnimation(model));
+        }
+
+        internal void ExpandWithoutAnimation(object model)
+        {
+            if (model is ContainerInfo container)
+            {
+                _activeAnimations.Remove(container);
+                _revealLimits.Remove(container);
+                _animationStopwatches.Remove(container);
+            }
+
+            Expand(model);
         }
 
         public void InvokeRebuildAll(bool preserveState)
@@ -307,6 +612,35 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             }
         }
 
+        /// <summary>
+        /// Creates a new top-level root group, displayed as a peer of the main "Connections"
+        /// root node (similar to server groups in SSMS). The group is still stored as a real
+        /// child of the main root node so existing save/load logic is unaffected.
+        /// </summary>
+        public void AddRoot()
+        {
+            try
+            {
+                ContainerInfo newRoot = new() { IsRootGroup = true };
+
+                // the new node will survive filtering if filtering is active
+                _connectionTreeSearchTextFilter.SpecialInclusionList.Add(newRoot);
+
+                DefaultConnectionInfo.Instance.SaveTo(newRoot);
+                DefaultConnectionInheritance.Instance.SaveTo(newRoot.Inheritance);
+
+                newRoot.SetParent(GetRootConnectionNode());
+
+                SelectObject(newRoot, true);
+                EnsureModelVisible(newRoot);
+                BeginRename();
+            }
+            catch (Exception ex)
+            {
+                Runtime.MessageCollector.AddExceptionStackTrace(Language.ErrorAddFolderFailed, ex);
+            }
+        }
+
         private void AddNode(ConnectionInfo newNode)
         {
             if (SelectedNode?.GetTreeNodeType() == TreeNodeType.PuttyRoot ||
@@ -323,11 +657,10 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             ContainerInfo selectedContainer = parentNode as ContainerInfo;
             ContainerInfo parent = selectedContainer ?? parentNode?.Parent;
             newNode.SetParent(parent);
-            Expand(parent);
+            ExpandWithoutAnimation(parent);
             SelectObject(newNode, true);
             EnsureModelVisible(newNode);
-            _allowEdit = true;
-            SelectedItem.BeginEdit();
+            BeginRename();
         }
 
         public void DuplicateSelectedNode()
@@ -347,8 +680,19 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
         public void RenameSelectedNode()
         {
             if (SelectedItem == null) return;
+            _slowClickRenameHandler?.Cancel();
+            BeginRename();
+        }
+
+        // The native ListViewItem.BeginEdit() places its edit box at the native text position,
+        // while ObjectListView draws the text after the indent, expander and icon, so the box
+        // was shifted and the old name showed behind it (#3247). ObjectListView's own cell
+        // editor is placed by the tree renderer, over the text as drawn.
+        private void BeginRename()
+        {
+            if (SelectedItem == null) return;
             _allowEdit = true;
-            SelectedItem.BeginEdit();
+            StartCellEdit(SelectedItem, 0);
         }
 
         public void DeleteSelectedNode()
@@ -406,8 +750,12 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
         /// <param name="filterText">The text to filter by</param>
         public void ApplyFilter(string filterText)
         {
-            UseFiltering = true;
             _connectionTreeSearchTextFilter.FilterText = filterText;
+            // TreeListView ignores Expand() on rows it is not showing, so expand
+            // the paths to matches before the filter hides their folders
+            ModelFilter = null;
+            ExpandAncestorsOfFilterMatches();
+            UseFiltering = true;
             ModelFilter = _connectionTreeSearchTextFilter;
         }
 
@@ -418,6 +766,88 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
         {
             UseFiltering = false;
             ResetColumnFiltering();
+            CollapseContainersExpandedByFilter();
+        }
+
+        /// <summary>
+        /// TreeListView only evaluates the filter against children of expanded
+        /// branches, so matches inside collapsed folders would stay hidden.
+        /// Expand every folder on the path to a match so the user can see it
+        /// and where it lives.
+        /// </summary>
+        private void ExpandAncestorsOfFilterMatches()
+        {
+            if (ConnectionTreeModel == null) return;
+
+            HashSet<ContainerInfo> containersToExpand = [];
+            foreach (ConnectionInfo node in ConnectionTreeModel.GetRecursiveChildList())
+            {
+                if (!_connectionTreeSearchTextFilter.Filter(node)) continue;
+
+                for (ContainerInfo parent = node.Parent; parent != null; parent = parent.Parent)
+                {
+                    if (!IsExpanded(parent))
+                        containersToExpand.Add(parent);
+                }
+            }
+
+            if (containersToExpand.Count == 0) return;
+
+            _filterIsChangingExpansion = true;
+            try
+            {
+                // expand outermost folders first so each child branch exists when it is expanded
+                foreach (ContainerInfo container in containersToExpand.OrderBy(GetDepth))
+                {
+                    ExpandWithoutAnimation(container);
+                    _containersExpandedByFilter.Add(container);
+                }
+            }
+            finally
+            {
+                _filterIsChangingExpansion = false;
+            }
+
+            AutoResizeColumn(Columns[0]);
+        }
+
+        /// <summary>
+        /// Returns folders that were opened only to reveal filter matches to
+        /// their previous collapsed state, so searching does not permanently
+        /// change (and save) the user's tree layout.
+        /// </summary>
+        private void CollapseContainersExpandedByFilter()
+        {
+            if (_containersExpandedByFilter.Count == 0) return;
+
+            _filterIsChangingExpansion = true;
+            try
+            {
+                // collapse innermost folders first so each branch is still visible when collapsed
+                foreach (ContainerInfo container in _containersExpandedByFilter.OrderByDescending(GetDepth).ToList())
+                {
+                    if (!IsExpanded(container)) continue;
+
+                    // skip the collapse animation; it would run for every folder at once
+                    _collapseFinalizing.Add(container);
+                    Collapse(container);
+                }
+            }
+            finally
+            {
+                _filterIsChangingExpansion = false;
+            }
+
+            _containersExpandedByFilter.Clear();
+            AutoResizeColumn(Columns[0]);
+        }
+
+        private static int GetDepth(ConnectionInfo node)
+        {
+            int depth = 0;
+            for (ContainerInfo parent = node.Parent; parent != null; parent = parent.Parent)
+                depth++;
+            return depth;
         }
 
         private void HandleCollectionChanged(object sender, NotifyCollectionChangedEventArgs args)
@@ -431,6 +861,11 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
                 ResetColumnFiltering();
             }
 
+            if (CollectionChangeAffectsRootGroups(args))
+            {
+                RefreshTreeRoots();
+            }
+
             RefreshObject(sender);
             AutoResizeColumn(Columns[0]);
 
@@ -438,6 +873,25 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             if (!filteringEnabled) return;
             ModelFilter = filter;
             UpdateFiltering();
+        }
+
+        private static bool CollectionChangeAffectsRootGroups(NotifyCollectionChangedEventArgs args)
+        {
+            return ContainsRootGroup(args.NewItems) || ContainsRootGroup(args.OldItems);
+        }
+
+        private static bool ContainsRootGroup(System.Collections.IList items)
+        {
+            if (items == null)
+                return false;
+
+            foreach (object item in items)
+            {
+                if (item is ContainerInfo { IsRootGroup: true })
+                    return true;
+            }
+
+            return false;
         }
 
         protected override void UpdateFiltering()
@@ -450,6 +904,7 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
         {
             try
             {
+                _slowClickRenameHandler?.CancelIfDifferentNode(SelectedNode);
                 AppWindows.ConfigForm.SelectedTreeNode = SelectedNode;
             }
             catch (Exception ex)
@@ -461,18 +916,18 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
         private void OnMouse_DoubleClick(object sender, MouseEventArgs mouseEventArgs)
         {
             if (mouseEventArgs.Clicks < 2) return;
-            // ReSharper disable once NotAccessedVariable
             OLVListItem listItem = GetItemAt(mouseEventArgs.X, mouseEventArgs.Y, out _);
             if (listItem?.RowObject is not ConnectionInfo clickedNode) return;
+            _slowClickRenameHandler?.Cancel();
             DoubleClickHandler.Execute(clickedNode);
         }
 
         private void OnMouse_SingleClick(object sender, MouseEventArgs mouseEventArgs)
         {
             if (mouseEventArgs.Clicks > 1) return;
-            // ReSharper disable once NotAccessedVariable
             OLVListItem listItem = GetItemAt(mouseEventArgs.X, mouseEventArgs.Y, out _);
             if (listItem?.RowObject is not ConnectionInfo clickedNode) return;
+            _slowClickRenameHandler?.Execute(clickedNode);
             SingleClickHandler.Execute(clickedNode);
         }
 
@@ -498,20 +953,37 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             }
         }
 
-        private void OnBeforeLabelEdit(object sender, LabelEditEventArgs e)
+        private void OnCellEditStarting(object sender, CellEditEventArgs e)
         {
-            if (_nodeInEditMode || sender is not ConnectionTree)
+            if (_nodeInEditMode)
                 return;
 
-            if (!_allowEdit || SelectedNode is PuttySessionInfo || SelectedNode is RootPuttySessionsNodeInfo)
+            if (!_allowEdit || e.RowObject is PuttySessionInfo || e.RowObject is RootPuttySessionsNodeInfo)
             {
-                e.CancelEdit = true;
+                e.Cancel = true;
+                _allowEdit = false;
                 return;
             }
 
             _nodeInEditMode = true;
-            _contextMenu.DisableShortcutKeys();
+            _contextMenu?.DisableShortcutKeys();
+            e.Control.Bounds = CalculateRenameEditorBounds(e.Control.Bounds, e.ListViewItem.IndentCount);
         }
+
+        /// <summary>
+        /// ObjectListView indents the editor by the small image width per tree level, but the tree
+        /// renderer indents the text by TreeRenderer.PIXELS_PER_LEVEL; with display scaling the
+        /// images are wider and the editor moves right of the text, more on each level. The editor
+        /// is also only as wide as the current name. Move it over the text and let it fill the row.
+        /// </summary>
+        internal System.Drawing.Rectangle CalculateRenameEditorBounds(System.Drawing.Rectangle editorBounds, int indentCount)
+        {
+            editorBounds.X += indentCount * (TreeRenderer.PIXELS_PER_LEVEL - SmallImageSize.Width);
+            editorBounds.Width = Math.Max(MinimumRenameEditorWidth, ClientSize.Width - editorBounds.X);
+            return editorBounds;
+        }
+
+        private const int MinimumRenameEditorWidth = 50;
 
         private void ConnectionTree_FormatCell(object sender, FormatCellEventArgs e)
         {
@@ -534,17 +1006,27 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             }
         }
 
-        private void OnAfterLabelEdit(object sender, LabelEditEventArgs e)
+        private void OnCellEditFinishing(object sender, CellEditEventArgs e)
         {
             if (!_nodeInEditMode)
                 return;
 
+            // e.Cancel is set when the user pressed Escape. Otherwise the name is applied here,
+            // through RenameNode, instead of ObjectListView writing it into the model directly.
+            string newName = e.Cancel ? null : e.NewValue as string;
+            e.Cancel = true;
+
             try
             {
-                _contextMenu.EnableShortcutKeys();
-                ConnectionTreeModel.RenameNode(SelectedNode, e.Label);
+                _contextMenu?.EnableShortcutKeys();
+                if (e.RowObject is ConnectionInfo connectionInfo)
+                {
+                    ConnectionTreeModel.RenameNode(connectionInfo, newName);
+                    RefreshObject(connectionInfo);
+                }
                 _nodeInEditMode = false;
                 _allowEdit = false;
+                _slowClickRenameHandler?.Cancel();
                 // ensures that if we are filtering and a new item is added that doesn't match the filter, it will be filtered out
                 _connectionTreeSearchTextFilter.SpecialInclusionList.Clear();
                 UpdateFiltering();
@@ -552,7 +1034,7 @@ namespace mRemoteNG.UI.Controls.ConnectionTree
             }
             catch (Exception ex)
             {
-                Runtime.MessageCollector.AddExceptionStackTrace("tvConnections_AfterLabelEdit (UI.Window.ConnectionTreeWindow) failed", ex);
+                Runtime.MessageCollector.AddExceptionStackTrace("ConnectionTree.OnCellEditFinishing failed", ex);
             }
         }
 

@@ -6,6 +6,7 @@ using System.Runtime.Versioning;
 using System.Security;
 using mRemoteNG.Connection;
 using mRemoteNG.Container;
+using mRemoteNG.Plugins;
 using mRemoteNG.Security;
 using mRemoteNG.Tools;
 using mRemoteNG.Tree;
@@ -23,10 +24,12 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
         private DataTable _sourceDataTable;
         private readonly Dictionary<string, int> _sourcePrimaryKeyDict = [];
         private const string TABLE_NAME = "tblCons";
+        private const string INHERIT_TERMINAL_BACKEND = "InheritTerminalBackend";
+        private const string INHERIT_REDIRECT_WEBAUTHN = "InheritRedirectWebAuthn";
         private readonly SaveFilter _saveFilter = saveFilter.ThrowIfNull(nameof(saveFilter));
         private int _currentNodeIndex;
 
-        public Version Version { get; } = new Version(3, 0);
+        public Version Version { get; } = new Version(3, 2);
 
         public void SetSourceDataTable(DataTable sourceDataTable)
         {
@@ -37,17 +40,16 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
         {
             try
             {
-                _dataTable = BuildTable();
-
-                _currentNodeIndex = 0;
-
+                // Serialize(ConnectionInfo) builds the table. Building it here as well listed the
+                // rows of a source table twice, and the duplicate key threw before any change was
+                // written, so the source table came back as it was.
                 ContainerInfo rootNode = connectionTreeModel.RootNodes.First(node => node is RootNodeInfo);
 
                 return Serialize(rootNode);
             }
             catch (Exception)
             {
-                return _dataTable;
+                return _dataTable ?? BuildTable();
             }
         }
 
@@ -164,8 +166,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             dataTable.Columns.Add("InheritRedirectPorts", typeof(bool));
             dataTable.Columns.Add("InheritRedirectPrinters", typeof(bool));
             dataTable.Columns.Add("InheritRedirectSmartCards", typeof(bool));
+            dataTable.Columns.Add(INHERIT_REDIRECT_WEBAUTHN, typeof(bool));
             dataTable.Columns.Add("InheritRedirectSound", typeof(bool));
             dataTable.Columns.Add("InheritRenderingEngine", typeof(bool));
+            dataTable.Columns.Add(INHERIT_TERMINAL_BACKEND, typeof(bool));
             dataTable.Columns.Add("InheritResolution", typeof(bool));
             dataTable.Columns.Add("InheritSSHOptions", typeof(bool));
             dataTable.Columns.Add("InheritSSHTunnelConnectionName", typeof(bool));
@@ -202,6 +206,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             dataTable.Columns.Add("Password", typeof(string));
             dataTable.Columns.Add("Port", typeof(int));
             dataTable.Columns.Add("PositionID", typeof(int));
+            dataTable.Columns.Add("PluginData", typeof(string));
             dataTable.Columns.Add("PostExtApp", typeof(string));
             dataTable.Columns.Add("PreExtApp", typeof(string));
             dataTable.Columns.Add("Protocol", typeof(string));
@@ -226,8 +231,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             dataTable.Columns.Add("RedirectPorts", typeof(bool));
             dataTable.Columns.Add("RedirectPrinters", typeof(bool));
             dataTable.Columns.Add("RedirectSmartCards", typeof(bool));
+            dataTable.Columns.Add("RedirectWebAuthn", typeof(bool));
             dataTable.Columns.Add("RedirectSound", typeof(string));
             dataTable.Columns.Add("RenderingEngine", typeof(string));
+            dataTable.Columns.Add("TerminalBackend", typeof(string));
             dataTable.Columns.Add("Resolution", typeof(string));
             dataTable.Columns.Add("SSHOptions", typeof(string));
             dataTable.Columns.Add("SSHTunnelConnectionName", typeof(string));
@@ -317,16 +324,24 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             isFieldNotChange = isFieldNotChange && dataRow["MacAddress"].Equals(connectionInfo.MacAddress);
             isFieldNotChange = isFieldNotChange && dataRow["OpeningCommand"].Equals(connectionInfo.OpeningCommand);
             isFieldNotChange = isFieldNotChange && dataRow["Port"].Equals(connectionInfo.Port);
+            isFieldNotChange = isFieldNotChange &&
+                               (!dataRow.Table.Columns.Contains("PluginData")
+                                   ? string.IsNullOrEmpty(PluginConnectionDataSerializer.Serialize(connectionInfo.PluginProperties))
+                                   : dataRow["PluginData"].Equals(PluginConnectionDataSerializer.Serialize(connectionInfo.PluginProperties)));
             isFieldNotChange = isFieldNotChange && dataRow["PostExtApp"].Equals(connectionInfo.PostExtApp);
             isFieldNotChange = isFieldNotChange && dataRow["PreExtApp"].Equals(connectionInfo.PreExtApp);
             isFieldNotChange = isFieldNotChange && dataRow["Protocol"].Equals(connectionInfo.Protocol.ToString());
             isFieldNotChange = isFieldNotChange && dataRow["PuttySession"].Equals(connectionInfo.PuttySession);
             isFieldNotChange = isFieldNotChange && dataRow["RDGatewayDomain"].Equals(connectionInfo.RDGatewayDomain);
-            isFieldNotChange = isFieldNotChange && dataRow["RDGatewayExternalCredentialProvider"].Equals(connectionInfo.RDGatewayExternalCredentialProvider);
+            isFieldNotChange = isFieldNotChange &&
+                               (!dataRow.Table.Columns.Contains("RDGatewayExternalCredentialProvider")
+                                   || dataRow["RDGatewayExternalCredentialProvider"].Equals(connectionInfo.RDGatewayExternalCredentialProvider));
             isFieldNotChange = isFieldNotChange && dataRow["RDGatewayHostname"].Equals(connectionInfo.RDGatewayHostname);
             isFieldNotChange = isFieldNotChange && dataRow["RDGatewayUsageMethod"].Equals(connectionInfo.RDGatewayUsageMethod.ToString());
             isFieldNotChange = isFieldNotChange && dataRow["RDGatewayUseConnectionCredentials"].Equals(connectionInfo.RDGatewayUseConnectionCredentials.ToString());
-            isFieldNotChange = isFieldNotChange && dataRow["RDGatewayUserViaAPI"].Equals(connectionInfo.RDGatewayUserViaAPI);
+            isFieldNotChange = isFieldNotChange &&
+                               (!dataRow.Table.Columns.Contains("RDGatewayUserViaAPI")
+                                   || dataRow["RDGatewayUserViaAPI"].Equals(connectionInfo.RDGatewayUserViaAPI));
             isFieldNotChange = isFieldNotChange && dataRow["RDGatewayUsername"].Equals(connectionInfo.RDGatewayUsername);
             isFieldNotChange = isFieldNotChange && dataRow["RDPAlertIdleTimeout"].Equals(connectionInfo.RDPAlertIdleTimeout);
             isFieldNotChange = isFieldNotChange && dataRow["RDPAuthenticationLevel"].Equals(connectionInfo.RDPAuthenticationLevel.ToString());
@@ -340,8 +355,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             isFieldNotChange = isFieldNotChange && dataRow["RedirectPorts"].Equals(connectionInfo.RedirectPorts);
             isFieldNotChange = isFieldNotChange && dataRow["RedirectPrinters"].Equals(connectionInfo.RedirectPrinters);
             isFieldNotChange = isFieldNotChange && dataRow["RedirectSmartCards"].Equals(connectionInfo.RedirectSmartCards);
+            isFieldNotChange = isFieldNotChange && dataRow["RedirectWebAuthn"].Equals(connectionInfo.RedirectWebAuthn);
             isFieldNotChange = isFieldNotChange && dataRow["RedirectSound"].Equals(connectionInfo.RedirectSound.ToString());
             isFieldNotChange = isFieldNotChange && dataRow["RenderingEngine"].Equals(connectionInfo.RenderingEngine.ToString());
+            isFieldNotChange = isFieldNotChange && dataRow["TerminalBackend"].Equals(connectionInfo.TerminalBackend.ToString());
             isFieldNotChange = isFieldNotChange && dataRow["Resolution"].Equals(connectionInfo.Resolution.ToString());
             isFieldNotChange = isFieldNotChange && dataRow["SoundQuality"].Equals(connectionInfo.SoundQuality.ToString());
             isFieldNotChange = isFieldNotChange && dataRow["StartProgram"].Equals(connectionInfo.RDPStartProgram);
@@ -415,8 +432,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
                     dataRow["InheritRedirectPorts"].Equals(connectionInfo.Inheritance.RedirectPorts) &&
                     dataRow["InheritRedirectPrinters"].Equals(connectionInfo.Inheritance.RedirectPrinters) &&
                     dataRow["InheritRedirectSmartCards"].Equals(connectionInfo.Inheritance.RedirectSmartCards) &&
+                    dataRow[INHERIT_REDIRECT_WEBAUTHN].Equals(connectionInfo.Inheritance.RedirectWebAuthn) &&
                     dataRow["InheritRedirectSound"].Equals(connectionInfo.Inheritance.RedirectSound) &&
                     dataRow["InheritRenderingEngine"].Equals(connectionInfo.Inheritance.RenderingEngine) &&
+                    dataRow[INHERIT_TERMINAL_BACKEND].Equals(connectionInfo.Inheritance.TerminalBackend) &&
                     dataRow["InheritResolution"].Equals(connectionInfo.Inheritance.Resolution) &&
                     dataRow["InheritSoundQuality"].Equals(connectionInfo.Inheritance.SoundQuality) &&
                     dataRow["InheritUseConsoleSession"].Equals(connectionInfo.Inheritance.UseConsoleSession) &&
@@ -490,8 +509,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
                     dataRow["InheritRedirectPorts"].Equals(false) &&
                     dataRow["InheritRedirectPrinters"].Equals(false) &&
                     dataRow["InheritRedirectSmartCards"].Equals(false) &&
+                    dataRow[INHERIT_REDIRECT_WEBAUTHN].Equals(false) &&
                     dataRow["InheritRedirectSound"].Equals(false) &&
                     dataRow["InheritRenderingEngine"].Equals(false) &&
+                    dataRow[INHERIT_TERMINAL_BACKEND].Equals(false) &&
                     dataRow["InheritResolution"].Equals(false) &&
                     dataRow["InheritSoundQuality"].Equals(false) &&
                     dataRow["InheritUseConsoleSession"].Equals(false) &&
@@ -577,6 +598,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             dataRow["Password"] = _saveFilter.SavePassword ? _cryptographyProvider.Encrypt(connectionInfo.Password, _encryptionKey) : "";
             dataRow["Port"] = connectionInfo.Port;
             dataRow["PositionID"] = _currentNodeIndex;
+            dataRow["PluginData"] = PluginConnectionDataSerializer.Serialize(connectionInfo.PluginProperties);
             dataRow["PostExtApp"] = connectionInfo.PostExtApp;
             dataRow["PreExtApp"] = connectionInfo.PreExtApp;
             dataRow["Protocol"] = connectionInfo.Protocol;
@@ -599,8 +621,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             dataRow["RedirectPorts"] = connectionInfo.RedirectPorts;
             dataRow["RedirectPrinters"] = connectionInfo.RedirectPrinters;
             dataRow["RedirectSmartCards"] = connectionInfo.RedirectSmartCards;
+            dataRow["RedirectWebAuthn"] = connectionInfo.RedirectWebAuthn;
             dataRow["RedirectSound"] = connectionInfo.RedirectSound;
             dataRow["RenderingEngine"] = connectionInfo.RenderingEngine;
+            dataRow["TerminalBackend"] = connectionInfo.TerminalBackend;
             dataRow["Resolution"] = connectionInfo.Resolution;
             dataRow["SSHOptions"] = connectionInfo.SSHOptions;
             dataRow["SSHTunnelConnectionName"] = connectionInfo.SSHTunnelConnectionName;
@@ -614,7 +638,8 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
             dataRow["UseRestrictedAdmin"] = connectionInfo.UseRestrictedAdmin;
             dataRow["UseVmId"] = connectionInfo.UseVmId;
             dataRow["UserField"] = connectionInfo.UserField;
-            dataRow["EnvironmentTags"] = connectionInfo.EnvironmentTags;
+            if (dataRow.Table.Columns.Contains("EnvironmentTags"))
+                dataRow["EnvironmentTags"] = connectionInfo.EnvironmentTags;
             dataRow["Username"] = _saveFilter.SaveUsername ? connectionInfo.Username : "";
             dataRow["VNCAuthMode"] = connectionInfo.VNCAuthMode;
             dataRow["VNCColors"] = connectionInfo.VNCColors;
@@ -680,8 +705,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
                 dataRow["InheritRedirectPorts"] = connectionInfo.Inheritance.RedirectPorts;
                 dataRow["InheritRedirectPrinters"] = connectionInfo.Inheritance.RedirectPrinters;
                 dataRow["InheritRedirectSmartCards"] = connectionInfo.Inheritance.RedirectSmartCards;
+                dataRow[INHERIT_REDIRECT_WEBAUTHN] = connectionInfo.Inheritance.RedirectWebAuthn;
                 dataRow["InheritRedirectSound"] = connectionInfo.Inheritance.RedirectSound;
                 dataRow["InheritRenderingEngine"] = connectionInfo.Inheritance.RenderingEngine;
+                dataRow[INHERIT_TERMINAL_BACKEND] = connectionInfo.Inheritance.TerminalBackend;
                 dataRow["InheritResolution"] = connectionInfo.Inheritance.Resolution;
                 dataRow["InheritSSHOptions"] = connectionInfo.Inheritance.SSHOptions;
                 dataRow["InheritSSHTunnelConnectionName"] = connectionInfo.Inheritance.SSHTunnelConnectionName;
@@ -693,7 +720,8 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
                 dataRow["InheritUseRestrictedAdmin"] = connectionInfo.Inheritance.UseRestrictedAdmin;
                 dataRow["InheritUseVmId"] = connectionInfo.Inheritance.UseVmId;
                 dataRow["InheritUserField"] = connectionInfo.Inheritance.UserField;
-                dataRow["InheritEnvironmentTags"] = connectionInfo.Inheritance.EnvironmentTags;
+                if (dataRow.Table.Columns.Contains("InheritEnvironmentTags"))
+                    dataRow["InheritEnvironmentTags"] = connectionInfo.Inheritance.EnvironmentTags;
                 dataRow["InheritUserViaAPI"] = connectionInfo.Inheritance.UserViaAPI;
                 dataRow["InheritUsername"] = connectionInfo.Inheritance.Username;
                 dataRow["InheritVNCAuthMode"] = connectionInfo.Inheritance.VNCAuthMode;
@@ -760,8 +788,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
                 dataRow["InheritRedirectPorts"] = false;
                 dataRow["InheritRedirectPrinters"] = false;
                 dataRow["InheritRedirectSmartCards"] = false;
+                dataRow[INHERIT_REDIRECT_WEBAUTHN] = false;
                 dataRow["InheritRedirectSound"] = false;
                 dataRow["InheritRenderingEngine"] = false;
+                dataRow[INHERIT_TERMINAL_BACKEND] = false;
                 dataRow["InheritResolution"] = false;
                 dataRow["InheritSSHOptions"] = false;
                 dataRow["InheritSSHTunnelConnectionName"] = false;
@@ -771,7 +801,8 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Sql
                 dataRow["InheritUseRCG"] = false;
                 dataRow["InheritUseRestrictedAdmin"] = false;
                 dataRow["InheritUserField"] = false;
-                dataRow["InheritEnvironmentTags"] = false;
+                if (dataRow.Table.Columns.Contains("InheritEnvironmentTags"))
+                    dataRow["InheritEnvironmentTags"] = false;
                 dataRow["InheritUserViaAPI"] = false;
                 dataRow["InheritUsername"] = false;
                 dataRow["InheritVNCAuthMode"] = false;

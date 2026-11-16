@@ -37,7 +37,7 @@ namespace mRemoteNG.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool AlwaysShowPanelTabs {
             get {
                 return ((bool)(this["AlwaysShowPanelTabs"]));
@@ -164,6 +164,18 @@ namespace mRemoteNG.Properties {
             }
             set {
                 this["BindConnectionsAndConfigPanels"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SendToScreenRdpFullscreen {
+            get {
+                return ((bool)(this["SendToScreenRdpFullscreen"]));
+            }
+            set {
+                this["SendToScreenRdpFullscreen"] = value;
             }
         }
     }

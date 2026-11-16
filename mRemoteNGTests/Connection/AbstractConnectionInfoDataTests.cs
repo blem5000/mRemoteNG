@@ -266,7 +266,8 @@ public class AbstractConnectionInfoDataTests
     {
         var wasCalled = false;
         _testAbstractConnectionInfoData.PropertyChanged += (sender, args) => wasCalled = true;
-        _testAbstractConnectionInfoData.Resolution = RDPResolutions.Res1366x768;
+        // SmartSize is the first value, so the property already holds it.
+        _testAbstractConnectionInfoData.Resolution = RDPResolutions.Fullscreen;
         Assert.That(wasCalled, Is.True);
     }
 
@@ -375,6 +376,15 @@ public class AbstractConnectionInfoDataTests
         var wasCalled = false;
         _testAbstractConnectionInfoData.PropertyChanged += (sender, args) => wasCalled = true;
         _testAbstractConnectionInfoData.RedirectSmartCards = true;
+        Assert.That(wasCalled, Is.True);
+    }
+
+    [Test]
+    public void RedirectWebAuthnNotifiesOnValueChange()
+    {
+        var wasCalled = false;
+        _testAbstractConnectionInfoData.PropertyChanged += (sender, args) => wasCalled = true;
+        _testAbstractConnectionInfoData.RedirectWebAuthn = true;
         Assert.That(wasCalled, Is.True);
     }
 

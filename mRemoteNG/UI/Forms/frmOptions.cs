@@ -1,4 +1,5 @@
 ﻿#region  Usings
+using mRemoteNG.App;
 using mRemoteNG.UI.Forms.OptionsPages;
 using System;
 using System.Collections.Generic;
@@ -7,10 +8,8 @@ using System.Linq;
 using System.Windows.Forms;
 using mRemoteNG.Themes;
 using System.Configuration;
-using System.Drawing;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
-using mRemoteNG.App;
 using System.Runtime.Versioning;
 #endregion
 
@@ -24,30 +23,30 @@ namespace mRemoteNG.UI.Forms
         private readonly DisplayProperties _display = new();
         private readonly List<string> _optionPageObjectNames;
         private bool _isLoading = true;
-        private bool _isInitialized = false; // Add this field to the FrmOptions class
+        private bool _isInitialized = false;
+        private bool _isFontOverrideApplied = false;
+        private bool _isHandlingSelectionChange = false; // Guard flag to prevent recursive event handling
 
         /// <summary>
-        /// Raised when the user confirms (OK) or aborts (Cancel) the dialog.
-        /// The form does not close itself: it is embedded in <see cref="Window.OptionsWindow"/>,
-        /// which decides how to close the hosting window.
+        /// Raised when the user clicks OK or Cancel, signalling the host window to hide.
         /// </summary>
         public event EventHandler? CloseRequested;
 
-        public FrmOptions() : this(Language.StartupExit)
+        public FrmOptions() : this(Language.General)
         {
         }
 
         private FrmOptions(string pageName)
         {
             Cursor.Current = Cursors.WaitCursor;
-            Application.DoEvents();
             InitializeComponent();
             Icon = Resources.ImageConverter.GetImageAsIcon(Properties.Resources.Settings_16x);
             _pageName = pageName;
             Cursor.Current = Cursors.Default;
+            DoubleBuffered = true;
 
-            _optionPageObjectNames =
-            [
+            var optionPages = new List<string>
+            {
                 nameof(StartupExitPage),
                 nameof(AppearancePage),
                 nameof(ConnectionsPage),
@@ -58,24 +57,40 @@ namespace mRemoteNG.UI.Forms
                 nameof(UpdatesPage),
                 nameof(ThemePage),
                 nameof(SecurityPage),
+                nameof(PluginsPage),
                 nameof(AdvancedPage),
                 nameof(BackupPage)
-            ];
+            };
+
+#if DEBUG
+            // Add dev-only options management page in DEBUG builds
+            optionPages.Add(nameof(OptionsManagementPage));
+#endif
+
+            _optionPageObjectNames = optionPages;
 
             InitOptionsPagesToListView();
         }
 
+        // Apply the dark/light title bar before the window is shown to avoid a white flash.
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ThemeManager.getInstance().ApplyThemeToTitleBar(this);
+        }
+
         private void FrmOptions_Load(object sender, EventArgs e)
         {
+            Logger.Instance.Log?.Debug($"[FrmOptions_Load] START - IsInitialized: {_isInitialized}, Visible: {this.Visible}, Handle: {this.Handle}");
+
             // Only initialize once to prevent multiple event subscriptions and page reloading
             if (_isInitialized)
             {
-                this.Visible = true;
+                Logger.Instance.Log?.Debug($"[FrmOptions_Load] Already initialized - fast path");
                 return;
             }
 
-            this.Visible = true;
-            FontOverrider.FontOverride(this);
+            Logger.Instance.Log?.Debug($"[FrmOptions_Load] First initialization");
             SetActivatedPage();
             //ApplyLanguage();
             // Handle the main page here and the individual pages in
@@ -85,88 +100,107 @@ namespace mRemoteNG.UI.Forms
             btnCancel.Text = Language._Cancel;
             btnApply.Text = Language.Apply;
             ApplyTheme();
-            ThemeManager.getInstance().ThemeChanged += ApplyTheme;
             lstOptionPages.SelectedIndexChanged += LstOptionPages_SelectedIndexChanged;
             lstOptionPages.SelectedIndex = 0;
-            
-            // Handle visibility changes to ensure panel is populated when form is shown
-            this.VisibleChanged += FrmOptions_VisibleChanged;
+            Logger.Instance.Log?.Debug($"[FrmOptions_Load] Selected index set to 0");
 
             // Mark as initialized
             _isInitialized = true;
+            Logger.Instance.Log?.Debug($"[FrmOptions_Load] END (first initialization complete)");
         }
 
-        private void FrmOptions_VisibleChanged(object sender, EventArgs e)
+        private void FrmOptions_Shown(object sender, EventArgs e)
         {
-            // When the form becomes visible, ensure the panel is populated with the selected page
-            if (this.Visible && pnlMain.Controls.Count == 0)
+            if (_isFontOverrideApplied)
             {
-                OptionsPage page = (OptionsPage)lstOptionPages.SelectedObject;
-                if (page != null)
-                    pnlMain.Controls.Add(page);
+                return;
             }
+
+            BeginInvoke((MethodInvoker)(() =>
+            {
+                if (IsDisposed || _isFontOverrideApplied)
+                {
+                    return;
+                }
+
+                FontOverrider.FontOverride(this);
+                _isFontOverrideApplied = true;
+            }));
         }
 
         private void ApplyTheme()
         {
-            ThemeManager themeManager = ThemeManager.getInstance();
-            if (!themeManager.ActiveAndExtended) return;
-
-            Color background = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
-            Color foreground = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
-
-            BackColor = background;
-            ForeColor = foreground;
-
-            // The button bar, the page host and the splitters used to keep the system (light) colors,
-            // which left a bright strip at the bottom of the dialog when a dark theme was active.
-            pnlBottom.BackColor = background;
-            pnlBottom.ForeColor = foreground;
-            pnlMain.BackColor = background;
-            pnlMain.ForeColor = foreground;
-
-            // Splitter always paints its own system-colored border when BorderStyle is FixedSingle,
-            // so paint the 1px separator with a theme color instead.
-            Color separator = themeManager.ActiveTheme.ExtendedPalette.getColor("List_Item_Border");
-            splitter1.BorderStyle = BorderStyle.None;
-            splitter1.BackColor = separator;
-            splitter2.BackColor = separator;
-
-            Invalidate(true);
+            if (!ThemeManager.getInstance().ActiveAndExtended) return;
+            BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
+            pnlBottom.BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            pnlBottom.ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
         }
 
-#if false
-        private void ApplyLanguage()
+        internal void RefreshUiLanguage()
         {
-            Text = Language.OptionsPageTitle;
-            foreach (var optionPage in _pages.Values)
+            var selectedPage = lstOptionPages.SelectedObject as OptionsPage;
+            var wasLoading = _isLoading;
+            _isLoading = true;
+
+            try
             {
-                optionPage.ApplyLanguage();
+                Text = Language.OptionsPageTitle;
+                btnOK.Text = Language._Ok;
+                btnCancel.Text = Language._Cancel;
+                btnApply.Text = Language.Apply;
+
+                foreach (OptionsPage optionPage in _optionPages)
+                {
+                    optionPage.ApplyLanguage();
+                    optionPage.LoadSettings();
+                }
+
+                lstOptionPages.BuildList(true);
+                if (selectedPage != null)
+                {
+                    SetActivatedPage(selectedPage.PageName);
+                }
+                else if (lstOptionPages.Items.Count > 0)
+                {
+                    lstOptionPages.Items[0].Selected = true;
+                }
+            }
+            finally
+            {
+                _isLoading = wasLoading;
             }
         }
-#endif
 
         private void InitOptionsPagesToListView()
         {
+            Logger.Instance.Log?.Debug($"[InitOptionsPagesToListView] START - Loading {_optionPageObjectNames.Count} pages");
+
             lstOptionPages.RowHeight = _display.ScaleHeight(lstOptionPages.RowHeight);
             lstOptionPages.AllColumns.First().ImageGetter = ImageGetter;
 
-            // All pages are created synchronously. Previously only the first page was
-            // created here and the rest were deferred to Application.Idle, which never
-            // runs in tests and made the window appear empty on the first open.
+            // Suspend layout to prevent flickering during batch loading
             lstOptionPages.BeginUpdate();
             try
             {
-                foreach (string pageName in _optionPageObjectNames)
+                // Load all pages synchronously for faster, more responsive loading
+                // This is especially important when the form is recreated (second+ open)
+                foreach (var pageName in _optionPageObjectNames)
+                {
+                    Logger.Instance.Log?.Debug($"[InitOptionsPagesToListView] Loading page: {pageName}");
                     InitOptionsPage(pageName);
+                }
+
+                // All pages loaded, now start tracking changes
+                _isLoading = false;
+                Logger.Instance.Log?.Debug($"[InitOptionsPagesToListView] All {_optionPageObjectNames.Count} pages loaded");
             }
             finally
             {
                 lstOptionPages.EndUpdate();
             }
 
-            // All pages loaded, now start tracking changes
-            _isLoading = false;
+            Logger.Instance.Log?.Debug($"[InitOptionsPagesToListView] END");
         }
 
         private void InitOptionsPage(string pageName)
@@ -252,6 +286,11 @@ namespace mRemoteNG.UI.Forms
                             page = new AdvancedPage { Dock = DockStyle.Fill };
                         break;
                     }
+                case "PluginsPage":
+                    {
+                        page = new PluginsPage { Dock = DockStyle.Fill };
+                        break;
+                    }
                 case "BackupPage":
                     {
                         if (Properties.OptionsBackupPage.Default.cbBacupPageInOptionMenu ||
@@ -259,6 +298,18 @@ namespace mRemoteNG.UI.Forms
                             page = new BackupPage { Dock = DockStyle.Fill };
                         break;
                     }
+#if DEBUG
+                case "OptionsManagementPage":
+                    {
+                        var optionsManagementPage = new OptionsManagementPage { Dock = DockStyle.Fill };
+                        if (Runtime.OptionsRepositoryManager.IsInitialized)
+                        {
+                            optionsManagementPage.SetOptionsRepository(Runtime.OptionsRepositoryManager.Repository);
+                        }
+                        page = optionsManagementPage;
+                        break;
+                    }
+#endif
             }
 
             if (page == null) return;
@@ -278,9 +329,23 @@ namespace mRemoteNG.UI.Forms
             return page?.PageIcon == null ? _display.ScaleImage(Properties.Resources.F1Help_16x) : _display.ScaleImage(page.PageIcon);
         }
 
-        public void SetActivatedPage(string pageName = default)
+        public void SetActivatedPage(string? pageName = default)
         {
-            _pageName = pageName ?? Language.StartupExit;
+            _pageName = pageName ?? Language.General;
+
+            // Ensure we have items loaded before trying to access them
+            if (lstOptionPages.Items.Count == 0)
+            {
+                Logger.Instance.Log?.Warn($"[SetActivatedPage] No items in lstOptionPages, cannot set active page to '{_pageName}'");
+                return;
+            }
+
+            // Skip if the requested page is already selected (avoid redundant layout work)
+            if (lstOptionPages.SelectedObject is OptionsPage selectedPage && selectedPage.PageName == _pageName)
+            {
+                Logger.Instance.Log?.Debug($"[SetActivatedPage] Page '{_pageName}' already selected - skipping");
+                return;
+            }
 
             bool isSet = false;
             for (int i = 0; i < lstOptionPages.Items.Count; i++)
@@ -291,29 +356,32 @@ namespace mRemoteNG.UI.Forms
                 break;
             }
 
-            if (!isSet)
+            if (!isSet && lstOptionPages.Items.Count > 0)
                 lstOptionPages.Items[0].Selected = true;
         }
 
         private void BtnOK_Click(object sender, EventArgs e)
         {
+            Logger.Instance.Log?.Debug($"[BtnOK_Click] START");
             bool restartRequired = SaveOptions();
-            // Clear change flags after saving
             ClearChangeFlags();
 
-            // Ask while this form still exists: a restart tears the whole application down.
+            // Fork: ask while this form still exists; a restart tears the whole application down.
             if (PromptForRestartIfNeeded(restartRequired))
                 return;
 
             CloseRequested?.Invoke(this, EventArgs.Empty);
+            Logger.Instance.Log?.Debug($"[BtnOK_Click] END");
         }
 
         private void BtnApply_Click(object sender, EventArgs e)
         {
+            Logger.Instance.Log?.Debug($"[BtnApply_Click] START");
             bool restartRequired = SaveOptions();
             // Clear change flags after applying
             ClearChangeFlags();
             PromptForRestartIfNeeded(restartRequired);
+            Logger.Instance.Log?.Debug($"[BtnApply_Click] END");
         }
 
         /// <summary>
@@ -322,31 +390,36 @@ namespace mRemoteNG.UI.Forms
         /// </summary>
         private bool SaveOptions()
         {
+            string previousOverrideCulture = Settings.Default.OverrideUICulture;
             string themeNameBefore = OptionsThemePage.Default.ThemeName;
 
             foreach (OptionsPage page in _optionPages)
             {
-                Debug.WriteLine(page.PageName);
+                Logger.Instance.Log?.Debug($"[SaveOptions] Saving page: {page.PageName}");
                 page.SaveSettings();
             }
 
-            // The option pages keep their values in their own settings classes; saving
-            // Settings.Default used to persist nothing, so theme/update choices were lost.
-            Config.Settings.SettingsSaver.SaveOptionPages();
+            Logger.Instance.Log?.Debug($"[SaveOptions] Configuration file: {(ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None)).FilePath}");
 
-            Debug.WriteLine((ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None)).FilePath);
+            // Fork: the option pages own their settings classes; saving Settings.Default alone
+            // persisted nothing, so theme/update choices were lost.
+            Config.Settings.SettingsSaver.SaveOptionPages();
             Settings.Default.Save();
 
-            // Keep the standard AppData copy in sync so settings survive moving the program.
+            // Fork: keep the standard AppData copy in sync so settings survive moving the program.
             mRemoteNG.App.Info.UserSettingsFile.Mirror();
+
+            if (!string.Equals(previousOverrideCulture, Settings.Default.OverrideUICulture, StringComparison.Ordinal))
+            {
+                ProgramRoot.ApplyUiCulture(Settings.Default.OverrideUICulture);
+                RefreshUiLanguage();
+            }
 
             return !string.Equals(themeNameBefore, OptionsThemePage.Default.ThemeName, StringComparison.Ordinal);
         }
 
         /// <summary>
         /// Asks whether to restart right away when a saved theme change needs one.
-        /// Returns true when a restart was requested, so the caller must not close the
-        /// dialog afterwards — the whole application is going down.
         /// </summary>
         private bool PromptForRestartIfNeeded(bool restartRequired)
         {
@@ -367,18 +440,72 @@ namespace mRemoteNG.UI.Forms
 
         private void LstOptionPages_SelectedIndexChanged(object sender, EventArgs e)
         {
-            pnlMain.Controls.Clear();
+            // Guard against recursive calls that can cause infinite loops
+            if (_isHandlingSelectionChange)
+            {
+                Logger.Instance.Log?.Warn($"[LstOptionPages_SelectedIndexChanged] RECURSIVE CALL BLOCKED - Preventing infinite loop");
+                return;
+            }
 
-            OptionsPage page = (OptionsPage)lstOptionPages.SelectedObject;
-            if (page != null)
+            _isHandlingSelectionChange = true;
+            try
+            {
+                Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] START - IsLoading: {_isLoading}, SelectedIndex: {lstOptionPages.SelectedIndex}, Items.Count: {lstOptionPages.Items.Count}");
+
+                if (lstOptionPages.SelectedObject is OptionsPage page)
+                {
+                    Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] SelectedObject: {page.PageName}");
+                }
+                else
+                {
+                    Logger.Instance.Log?.Warn($"[LstOptionPages_SelectedIndexChanged] Page is NULL - cannot display. This may indicate a selection issue.");
+                    return;
+                }
+
+                // Skip if this page is already displayed in the panel
+                if (pnlMain.Controls.Count == 1 && pnlMain.Controls[0] == page)
+                {
+                    Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] Page '{page.PageName}' already displayed - skipping");
+                    return;
+                }
+
+                pnlMain.SuspendLayout();
+                pnlMain.Controls.Clear();
+                Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] pnlMain.Controls cleared");
+
+                if (page.IsDisposed)
+                {
+                    Logger.Instance.Log?.Error($"[LstOptionPages_SelectedIndexChanged] Page '{page.PageName}' is disposed - cannot display");
+                    return;
+                }
+
+                // Ensure the page has a valid window handle
+                if (!page.IsHandleCreated)
+                {
+                    Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] Page '{page.PageName}' has no handle - creating handle");
+                    var handle = page.Handle; // This creates the handle
+                    Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] Handle created: {handle}");
+                }
+
+                Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] Adding page '{page.PageName}' to pnlMain");
                 pnlMain.Controls.Add(page);
+                pnlMain.ResumeLayout(true);
+                Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] Page added successfully. pnlMain.Controls.Count: {pnlMain.Controls.Count}");
+
+                Logger.Instance.Log?.Debug($"[LstOptionPages_SelectedIndexChanged] END");
+            }
+            finally
+            {
+                _isHandlingSelectionChange = false;
+            }
         }
 
         private void BtnCancel_Click(object sender, EventArgs e)
         {
-            // Cancel discards pending edits instead of silently keeping them.
+            Logger.Instance.Log?.Debug($"[BtnCancel_Click] START");
             ReloadAllSettings();
             CloseRequested?.Invoke(this, EventArgs.Empty);
+            Logger.Instance.Log?.Debug($"[BtnCancel_Click] END");
         }
 
         /// <summary>
@@ -387,12 +514,22 @@ namespace mRemoteNG.UI.Forms
         internal bool HasUnsavedChanges() => _optionPages.Any(page => page.HasChanges);
 
         /// <summary>
+        /// Saves all option page settings to disk.
+        /// </summary>
+        internal void SaveAllOptions()
+        {
+            SaveOptions();
+            ClearChangeFlags();
+        }
+
+        /// <summary>
         /// Reloads all pages from the stored settings, discarding any pending control edits.
+        /// Call this on Cancel or any close path that should not persist changes.
         /// </summary>
         internal void ReloadAllSettings()
         {
-            // Suppress change tracking while the control values are restored programmatically
-            bool wasLoading = _isLoading;
+            // Suppress HasChanges tracking while we programmatically restore control values
+            var wasLoading = _isLoading;
             _isLoading = true;
             try
             {
@@ -403,52 +540,13 @@ namespace mRemoteNG.UI.Forms
             {
                 _isLoading = wasLoading;
             }
-
             ClearChangeFlags();
         }
 
-        private void FrmOptions_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            // Note: this dialog is created once per session and embedded in OptionsWindow, and
-            // every close is cancelled here (the form is only hidden), so it must stay subscribed
-            // to ThemeChanged - a single instance is not a leak.
-            // Check if any page has unsaved changes
-            bool hasChanges = _optionPages.Any(page => page.HasChanges);
-            
-            if (hasChanges)
-            {
-                DialogResult result = MessageBox.Show(
-                    Language.SaveOptionsBeforeClosing,
-                    Language.Options,
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question);
-                
-                switch (result)
-                {
-                    case DialogResult.Yes:
-                        SaveOptions();
-                        ClearChangeFlags();
-                        e.Cancel = true;
-                        this.Visible = false;
-                        break;
-                    case DialogResult.No:
-                        // Discard changes
-                        ClearChangeFlags();
-                        e.Cancel = true;
-                        this.Visible = false;
-                        break;
-                    case DialogResult.Cancel:
-                        // Cancel closing - keep the dialog open
-                        e.Cancel = true;
-                        break;
-                }
-            }
-            else
-            {
-                e.Cancel = true;
-                this.Visible = false;
-            }
-        }
+        /// <summary>
+        /// Discards any pending change flags and reloads control values from stored settings.
+        /// </summary>
+        internal void DiscardChanges() => ReloadAllSettings();
 
         private void TrackChangesInControls(Control control)
         {

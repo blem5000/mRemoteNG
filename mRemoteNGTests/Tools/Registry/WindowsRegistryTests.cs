@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using Microsoft.Win32;
 using System.Runtime.Versioning;
 using System.Collections.Generic;
@@ -225,7 +226,8 @@ namespace mRemoteNGTests.Tools.Registry
         [Test]
         public void CreateKey_ExistingKey_DoesNotThrow()
         {
-            const string testPath = TestPath + @"\TestSubKey";
+            const string testPath = TestPath + @"\ExistingSubKey";
+            CreateKey(TestHive, testPath);
             Assert.DoesNotThrow(() => CreateKey(TestHive, testPath));
         }
 

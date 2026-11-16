@@ -6,15 +6,18 @@ using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
 using mRemoteNG.App;
+using mRemoteNG.App.Info;
 using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Connection.Protocol.RDP;
 using mRemoteNG.Connection.Protocol.VNC;
+using mRemoteNG.Container;
 using mRemoteNG.Messages;
 using mRemoteNG.Properties;
 using mRemoteNG.Security;
 using mRemoteNG.Tools;
 using mRemoteNG.Tools.Attributes;
+using mRemoteNG.Tree;
 using mRemoteNG.Tree.Root;
 using mRemoteNG.Resources.Language;
 using System.Runtime.Versioning;
@@ -22,7 +25,6 @@ using System.Runtime.Versioning;
 namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
     [SupportedOSPlatform("windows")]
     public partial class ConnectionInfoPropertyGrid : FilteredPropertyGrid.FilteredPropertyGrid {
-        private readonly Dictionary<Type, IEnumerable<PropertyInfo>> _propertyCache = [];
         private ConnectionInfo _selectedConnectionInfo;
         private PropertyMode _propertyMode;
 
@@ -176,34 +178,28 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
             }
         }
 
-        private IEnumerable<PropertyInfo> GetPropertiesForGridObject(object currentGridObject) {
-            if (_propertyCache.TryGetValue(currentGridObject.GetType(), out IEnumerable<PropertyInfo> properties))
-                return properties;
-
-            Type type = currentGridObject.GetType();
-            PropertyInfo[] props = type.GetProperties();
-            _propertyCache.Add(type, props);
-
-            return props;
+        private IEnumerable<PropertyDescriptor> GetPropertiesForGridObject(object currentGridObject) {
+            return TypeDescriptor.GetProperties(currentGridObject).Cast<PropertyDescriptor>();
         }
 
-        private bool IsValidForProtocol(PropertyInfo property, ProtocolType protocol, bool skipProtocolCheck) {
+        private bool IsValidForProtocol(PropertyDescriptor property, ProtocolType protocol, bool skipProtocolCheck) {
+            if (property is PluginConnectionPropertyDescriptor pluginPropertyDescriptor)
+                return property.IsBrowsable && (skipProtocolCheck || pluginPropertyDescriptor.IsValidForProtocol(protocol));
+
             return
-                property.GetCustomAttribute<BrowsableAttribute>()?.Browsable != false &&
-                (skipProtocolCheck || property.GetCustomAttribute<AttributeUsedInProtocol>()?
+                property.Attributes[typeof(BrowsableAttribute)] is not BrowsableAttribute { Browsable: false } &&
+                (skipProtocolCheck || (property.Attributes[typeof(AttributeUsedInProtocol)] as AttributeUsedInProtocol)?
                     .SupportedProtocolTypes
                     .Contains(protocol) != false);
         }
 
         private List<string> SpecialExternalAddressProviderExclusions() {
-            List<string> strHide = new();
-
-            // aws
-            if (SelectedConnectionInfo.ExternalAddressProvider != ExternalAddressProvider.AmazonWebServices) {
-                strHide.Add(nameof(AbstractConnectionRecord.EC2InstanceId));
-                strHide.Add(nameof(AbstractConnectionRecord.EC2Region));
-            }
-            return strHide;
+            return
+            [
+                nameof(AbstractConnectionRecord.ExternalAddressProvider),
+                nameof(AbstractConnectionRecord.EC2InstanceId),
+                nameof(AbstractConnectionRecord.EC2Region)
+            ];
         }
 
         private List<string> SpecialExternalCredentialProviderExclusions() {
@@ -228,7 +224,8 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
                 strHide.Add(nameof(AbstractConnectionRecord.VaultOpenbaoRole));
             } else if (SelectedConnectionInfo.ExternalCredentialProvider == ExternalCredentialProvider.VaultOpenbao) {
                 strHide.Add(nameof(AbstractConnectionRecord.UserViaAPI));
-                if (SelectedConnectionInfo.VaultOpenbaoSecretEngine != VaultOpenbaoSecretEngine.Kv)
+                if (SelectedConnectionInfo.VaultOpenbaoSecretEngine != VaultOpenbaoSecretEngine.Kv
+                    && SelectedConnectionInfo.VaultOpenbaoSecretEngine != VaultOpenbaoSecretEngine.SSHOTP)
                     strHide.Add(nameof(AbstractConnectionRecord.Username));
                 strHide.Add(nameof(AbstractConnectionRecord.Password));
             }
@@ -275,8 +272,8 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
                 strHide.Add(nameof(AbstractConnectionRecord.RDGatewayUserViaAPI));
             }
 
-            if (!(SelectedConnectionInfo.Resolution == RDPResolutions.FitToWindow ||
-                  SelectedConnectionInfo.Resolution == RDPResolutions.Fullscreen)) {
+            // SmartSize scales client-side; Fit To Panel and Fullscreen can renegotiate the session resolution.
+            if (SelectedConnectionInfo.Resolution == RDPResolutions.SmartSize) {
                 strHide.Add(nameof(AbstractConnectionRecord.AutomaticResize));
             }
 
@@ -321,13 +318,38 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
                 SelectedConnectionInfo.SetDefaultPort();
             } else if (e.ChangedItem.Label == Language.Name) {
                 if (Settings.Default.SetHostnameLikeDisplayName) {
-                    if (!string.IsNullOrEmpty(SelectedConnectionInfo.Name))
+                    if (!string.IsNullOrEmpty(SelectedConnectionInfo.Name)) {
                         SelectedConnectionInfo.Hostname = SelectedConnectionInfo.Name;
+                        WarnIfHostnameAlreadyExists();
+                    }
                 }
+            } else if (e.ChangedItem.Label == Language.HostnameIp) {
+                WarnIfHostnameAlreadyExists();
             }
 
             if (IsShowingDefaultProperties)
                 DefaultConnectionInfo.Instance.SaveTo(Settings.Default, a => "ConDefault" + a);
+        }
+
+        private void WarnIfHostnameAlreadyExists() {
+            if (IsShowingDefaultProperties || SelectedConnectionInfo is ContainerInfo)
+                return;
+
+            ConnectionTreeModel treeModel = Runtime.ConnectionsService?.ConnectionTreeModel;
+            if (treeModel == null)
+                return;
+
+            List<string> duplicatePaths = DuplicateHostnameFinder
+                .FindDuplicates(treeModel.GetRecursiveChildList(), SelectedConnectionInfo)
+                .Select(c => $"{DuplicateHostnameFinder.GetTreePath(c)} ({c.Protocol})")
+                .ToList();
+            if (duplicatePaths.Count == 0)
+                return;
+
+            MessageBox.Show(this,
+                string.Format(Language.HostnameAlreadyExists, SelectedConnectionInfo.Hostname,
+                    Environment.NewLine + string.Join(Environment.NewLine, duplicatePaths)),
+                GeneralAppInfo.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private void UpdateRootInfoNode(PropertyValueChangedEventArgs e) {
@@ -356,6 +378,8 @@ namespace mRemoteNG.UI.Controls.ConnectionInfoPropertyGrid {
         private void UpdateInheritanceNode() {
             if (IsShowingDefaultProperties && IsShowingInheritance)
                 DefaultConnectionInheritance.Instance.SaveTo(Settings.Default, a => "InhDefault" + a);
+            else if (PropertyMode == PropertyMode.Inheritance)
+                SelectedConnectionInfo?.RaiseInheritanceChanged();
         }
 
         private void pGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e) {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.Versioning;
+using mRemoteNG.App;
 using mRemoteNG.Config.Settings.Registry;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
@@ -12,6 +13,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
         #region Private Fields
 
         private OptRegistryStartupExitPage pageRegSettingsInstance;
+        private bool _profilePromptEnabledAtLoad;
 
         #endregion
 
@@ -35,7 +37,21 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkReconnectOnStart.Text = Language.ReconnectAtStartup;
             chkSingleInstance.Text = Language.AllowOnlySingleInstance;
             chkStartMinimized.Text = Language.StartMinimized;
+            chkStartFullScreen.Text = Language.StartFullScreen;
+            chkDisableRefocus.Text = Language.DisableRefocus;
+            chkAskProfilePassword.Text = Language.AskProfilePasswordAtStartup;
             lblRegistrySettingsUsedInfo.Text = Language.OptionsCompanyPolicyMessage;
+        }
+
+        public override void LoadSettings()
+        {
+            chkReconnectOnStart.Checked = Properties.OptionsStartupExitPage.Default.OpenConsFromLastSession;
+            chkSingleInstance.Checked = Properties.OptionsStartupExitPage.Default.SingleInstance;
+            chkStartMinimized.Checked = Properties.OptionsStartupExitPage.Default.StartMinimized;
+            chkStartFullScreen.Checked = Properties.OptionsStartupExitPage.Default.StartFullScreen;
+            chkDisableRefocus.Checked = Properties.OptionsStartupExitPage.Default.DisableRefocus;
+            _profilePromptEnabledAtLoad = Runtime.IsProfilePromptEnabled(Properties.OptionsDBsPage.Default);
+            chkAskProfilePassword.Checked = _profilePromptEnabledAtLoad;
         }
 
         public override void SaveSettings()
@@ -47,6 +63,14 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             Properties.OptionsStartupExitPage.Default.StartMinimized = chkStartMinimized.Checked;
             Properties.OptionsStartupExitPage.Default.StartFullScreen = chkStartFullScreen.Checked;
             Properties.OptionsStartupExitPage.Default.DisableRefocus = chkDisableRefocus.Checked;
+
+            // only write when changed, so an untouched box keeps the defaults
+            if (chkAskProfilePassword.Checked != _profilePromptEnabledAtLoad)
+            {
+                Runtime.SetProfilePromptEnabled(Properties.OptionsDBsPage.Default, chkAskProfilePassword.Checked);
+                Properties.OptionsDBsPage.Default.Save();
+                _profilePromptEnabledAtLoad = chkAskProfilePassword.Checked;
+            }
         }
 
         public override void LoadRegistrySettings()
@@ -57,7 +81,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
 
             // If registry settings don't exist, create a default instance to prevent null reference exceptions
             if (pageRegSettingsInstance == null)
+            {
                 pageRegSettingsInstance = new OptRegistryStartupExitPage();
+                Logger.Instance.Log?.Debug("[StartupExitPage.LoadRegistrySettings] pageRegSettingsInstance was null, created default instance");
+            }
 
             RegistryLoader.Cleanup(settingsType);
 
@@ -101,15 +128,6 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             return pageRegSettingsInstance.OpenConnectionsFromLastSession.IsSet
                 || pageRegSettingsInstance.EnforceSingleApplicationInstance.IsSet
                 || pageRegSettingsInstance.StartupBehavior.IsSet;
-        }
-
-        private void StartupExitPage_Load(object sender, EventArgs e)
-        {
-            chkReconnectOnStart.Checked = Properties.OptionsStartupExitPage.Default.OpenConsFromLastSession;
-            chkSingleInstance.Checked = Properties.OptionsStartupExitPage.Default.SingleInstance;
-            chkStartMinimized.Checked = Properties.OptionsStartupExitPage.Default.StartMinimized;
-            chkStartFullScreen.Checked = Properties.OptionsStartupExitPage.Default.StartFullScreen;
-            chkDisableRefocus.Checked = Properties.OptionsStartupExitPage.Default.DisableRefocus;
         }
 
         private void chkStartFullScreen_CheckedChanged(object sender, EventArgs e)

@@ -7,6 +7,7 @@ using mRemoteNG.App;
 using mRemoteNG.Config.Settings.Registry;
 using mRemoteNG.Properties;
 using mRemoteNG.Resources.Language;
+using mRemoteNG.Tools;
 
 namespace mRemoteNG.UI.Forms.OptionsPages
 {
@@ -58,6 +59,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             buttonOpenLogFile.Text = Language.OpenFile;
             buttonSelectLogPath.Text = Language.ChoosePath;
             buttonRestoreDefaultLogPath.Text = Language.UseDefault;
+            groupBoxSyslog.Text = "Syslog";
+            chkLogToSyslog.Text = Language.Enable;
+            labelSyslogServer.Text = Language.Host;
+            labelSyslogPort.Text = Language.Port;
 
             // popups
             groupBoxPopups.Text = Language.Popups;
@@ -104,6 +109,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkLogInfoMsgs.Checked = Properties.OptionsNotificationsPage.Default.TextLogMessageWriterWriteInfoMsgs;
             chkLogWarningMsgs.Checked = Properties.OptionsNotificationsPage.Default.TextLogMessageWriterWriteWarningMsgs;
             chkLogErrorMsgs.Checked = Properties.OptionsNotificationsPage.Default.TextLogMessageWriterWriteErrorMsgs;
+            chkLogToSyslog.Checked = Properties.OptionsNotificationsPage.Default.LogToSyslog;
+            textBoxSyslogServer.Text = Properties.OptionsNotificationsPage.Default.SyslogServerHost;
+            numericSyslogPort.Value = Math.Clamp(Properties.OptionsNotificationsPage.Default.SyslogServerPort, (int)numericSyslogPort.Minimum, (int)numericSyslogPort.Maximum);
+            chkLogToSyslog_CheckedChanged(chkLogToSyslog, EventArgs.Empty);
         }
 
         private void LoadPopupSettings()
@@ -129,7 +138,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
         {
             Properties.OptionsNotificationsPage.Default.LogToApplicationDirectory = chkLogToCurrentDir.Checked;
             Properties.OptionsNotificationsPage.Default.LogFilePath = textBoxLogPath.Text;
-            Logger.Instance.SetLogPath(Properties.OptionsNotificationsPage.Default.LogFilePath);
+            Properties.OptionsNotificationsPage.Default.LogToSyslog = chkLogToSyslog.Checked;
+            Properties.OptionsNotificationsPage.Default.SyslogServerHost = textBoxSyslogServer.Text;
+            Properties.OptionsNotificationsPage.Default.SyslogServerPort = (int)numericSyslogPort.Value;
+            Logger.Instance.SetLogPath(Properties.OptionsNotificationsPage.Default.LogToApplicationDirectory ? Logger.DefaultLogPath : Properties.OptionsNotificationsPage.Default.LogFilePath);
             Properties.OptionsNotificationsPage.Default.TextLogMessageWriterWriteDebugMsgs = chkLogDebugMsgs.Checked;
             Properties.OptionsNotificationsPage.Default.TextLogMessageWriterWriteInfoMsgs = chkLogInfoMsgs.Checked;
             Properties.OptionsNotificationsPage.Default.TextLogMessageWriterWriteWarningMsgs = chkLogWarningMsgs.Checked;
@@ -152,7 +164,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
 
             // If registry settings don't exist, create a default instance to prevent null reference exceptions
             if (pageRegSettingsInstance == null)
+            {
                 pageRegSettingsInstance = new OptRegistryNotificationsPage();
+                Logger.Instance.Log?.Debug("[NotificationsPage.LoadRegistrySettings] pageRegSettingsInstance was null, created default instance");
+            }
 
             RegistryLoader.Cleanup(settingsType);
 
@@ -203,6 +218,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             if (!CommonRegistrySettings.AllowLogging)
             {
                 DisableControl(groupBoxLogging);
+                DisableControl(groupBoxSyslog);
                 return;
             }
 
@@ -328,6 +344,12 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             textBoxLogPath.Text = Logger.DefaultLogPath;
         }
 
+        private void chkLogToSyslog_CheckedChanged(object sender, System.EventArgs e)
+        {
+            textBoxSyslogServer.Enabled = chkLogToSyslog.Checked;
+            numericSyslogPort.Enabled = chkLogToSyslog.Checked;
+        }
+
         #region Privat Methods to Open Logfile
 
         /// <summary>
@@ -339,8 +361,17 @@ namespace mRemoteNG.UI.Forms.OptionsPages
         {
             try
             {
+                // Validate path to prevent command injection
+                PathValidator.ValidatePathOrThrow(path, nameof(path));
+                
                 // Open the file using the default application associated with its file type based on the user's preference
-                Process.Start(path);
+                // Use ProcessStartInfo with UseShellExecute for better control
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true
+                };
+                Process.Start(startInfo);
                 return true;
             }
             catch
@@ -359,9 +390,19 @@ namespace mRemoteNG.UI.Forms.OptionsPages
         {
             try
             {
+                // Validate path to prevent command injection
+                PathValidator.ValidatePathOrThrow(path, nameof(path));
+                
                 // Open it in "Notepad" (Windows default editor).
                 // Usually available on all Windows systems
-                Process.Start("notepad.exe", path);
+                // Use ProcessStartInfo with ArgumentList for better security
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "notepad.exe",
+                    UseShellExecute = false
+                };
+                startInfo.ArgumentList.Add(path);
+                Process.Start(startInfo);
                 return true;
             }
             catch
@@ -380,11 +421,22 @@ namespace mRemoteNG.UI.Forms.OptionsPages
         {
             try
             {
+                // Validate path to prevent command injection
+                PathValidator.ValidatePathOrThrow(path, nameof(path));
+                
                 // when all fails open filelocation to logfile...
                 // Open Windows Explorer to the directory containing the file
-                Process.Start("explorer.exe", $"/select,\"{path}\"");
-            return true;
-        }
+                // Explorer expects /select,"path" as a single argument
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    UseShellExecute = false
+                };
+                startInfo.ArgumentList.Add("/select,");
+                startInfo.ArgumentList.Add(path);
+                Process.Start(startInfo);
+                return true;
+            }
             catch
             {
                 // If necessary, the error can be logged here.

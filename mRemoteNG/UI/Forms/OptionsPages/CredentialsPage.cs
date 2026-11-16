@@ -1,10 +1,10 @@
 ﻿using System;
 using mRemoteNG.App;
 using mRemoteNG.Properties;
-using mRemoteNG.Security.SymmetricEncryption;
 using mRemoteNG.Resources.Language;
 using System.Runtime.Versioning;
 using mRemoteNG.Config.Settings.Registry;
+using mRemoteNG.Security;
 
 namespace mRemoteNG.UI.Forms.OptionsPages
 {
@@ -35,6 +35,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             lblCredentialsUsername.Text = Language.Username;
             lblCredentialsPassword.Text = Language.Password;
             lblCredentialsDomain.Text = Language.Domain;
+            lblCredentialsUserViaAPI.Text = Language.CredentialsUserViaAPI;
             lblRegistrySettingsUsedInfo.Text = Language.OptionsCompanyPolicyMessage;
         }
 
@@ -55,8 +56,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
                 }
             
             txtCredentialsUsername.Text = Properties.OptionsCredentialsPage.Default.DefaultUsername;
-            LegacyRijndaelCryptographyProvider cryptographyProvider = new();
-            txtCredentialsPassword.Text = cryptographyProvider.Decrypt(Properties.OptionsCredentialsPage.Default.DefaultPassword, Runtime.EncryptionKey);
+            txtCredentialsPassword.Text = OptionPasswords.Unprotect(Properties.OptionsCredentialsPage.Default.DefaultPassword);
             txtCredentialsDomain.Text = Properties.OptionsCredentialsPage.Default.DefaultDomain;
             txtCredentialsUserViaAPI.Text = Properties.OptionsCredentialsPage.Default.UserViaAPIDefault;
         }
@@ -77,8 +77,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             }
 
             Properties.OptionsCredentialsPage.Default.DefaultUsername = txtCredentialsUsername.Text;
-            LegacyRijndaelCryptographyProvider cryptographyProvider = new();
-            Properties.OptionsCredentialsPage.Default.DefaultPassword = cryptographyProvider.Encrypt(txtCredentialsPassword.Text, Runtime.EncryptionKey);
+            Properties.OptionsCredentialsPage.Default.DefaultPassword = OptionPasswords.Protect(txtCredentialsPassword.Text);
             Properties.OptionsCredentialsPage.Default.DefaultDomain = txtCredentialsDomain.Text;
             Properties.OptionsCredentialsPage.Default.UserViaAPIDefault = txtCredentialsUserViaAPI.Text;
         }
@@ -91,7 +90,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
 
             // If registry settings don't exist, create a default instance to prevent null reference exceptions
             if (pageRegSettingsInstance == null)
+            {
                 pageRegSettingsInstance = new OptRegistryCredentialsPage();
+                Logger.Instance.Log?.Debug("[CredentialsPage.LoadRegistrySettings] pageRegSettingsInstance was null, created default instance");
+            }
 
             RegistryLoader.Cleanup(settingsType);
 

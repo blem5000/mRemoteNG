@@ -77,6 +77,9 @@ namespace mRemoteNG.UI.Tabs
         private const int _DocumentIconHeight = 16;
         private const int _DocumentIconWidth = 16;
         private const int _DocumentTextGapRight = 6;
+        private const int _DocumentActionButtonGap = 3;
+        private const int _DocumentActionButtonSpacing = 1;
+        private const int _DocumentActionButtonLegacySize = 15;
 
         #endregion
 
@@ -87,6 +90,7 @@ namespace mRemoteNG.UI.Tabs
         private ToolTip m_toolTip;
         private Font m_font;
         private Font m_boldFont;
+        private Font m_documentTextFont;
         private int m_startDisplayingTab;
         private bool m_documentTabsOverflow;
         private static string m_toolTipSelect;
@@ -188,26 +192,26 @@ namespace mRemoteNG.UI.Tabs
 
         public Font TextFont => DockPane.DockPanel.Theme.Skin.DockPaneStripSkin.TextFont;
 
-        private Font BoldFont
+        private Font DocumentTextFont
         {
             get
             {
                 if (IsDisposed)
                     return null;
 
-                if (m_boldFont == null)
+                if (m_documentTextFont == null)
                 {
                     m_font = TextFont;
-                    m_boldFont = new Font(TextFont, FontStyle.Bold);
+                    m_documentTextFont = new Font(TextFont, TextFont.Style);
                 }
                 else if (!Equals(m_font, TextFont))
                 {
-                    m_boldFont.Dispose();
+                    m_documentTextFont.Dispose();
                     m_font = TextFont;
-                    m_boldFont = new Font(TextFont, FontStyle.Bold);
+                    m_documentTextFont = new Font(TextFont, TextFont.Style);
                 }
 
-                return m_boldFont;
+                return m_documentTextFont;
             }
         }
 
@@ -299,7 +303,15 @@ namespace mRemoteNG.UI.Tabs
             }
         }
 
-        private static int DocumentTabMaxWidth => _DocumentTabMaxWidth;
+        /// <summary>
+        /// The widest a document tab may get, scaled to the current DPI so that a long
+        /// name gets the same room on a high-DPI display as on a 96 DPI one.
+        /// </summary>
+        private int DocumentTabMaxWidth => LogicalToDeviceUnits(_DocumentTabMaxWidth);
+
+        private static int DocumentActionButtonGap => _DocumentActionButtonGap;
+
+        private static int DocumentActionButtonSpacing => _DocumentActionButtonSpacing;
 
         private static int DocumentButtonGapTop => _DocumentButtonGapTop;
 
@@ -364,6 +376,12 @@ namespace mRemoteNG.UI.Tabs
                     m_boldFont = null;
                 }
 
+                if (m_documentTextFont != null)
+                {
+                    m_documentTextFont.Dispose();
+                    m_documentTextFont = null;
+                }
+
             }
 
             base.Dispose(disposing);
@@ -392,7 +410,7 @@ namespace mRemoteNG.UI.Tabs
         {
             int height =
                 Math.Max(
-                         TextFont.Height + DocumentTabGapTop +
+                         DocumentTextFont.Height + DocumentTabGapTop +
                          (PatchController.EnableHighDpi == true ? DocumentIconGapBottom : 0),
                          ButtonOverflow.Height + DocumentButtonGapTop + DocumentButtonGapBottom)
               + DocumentStripGapBottom + DocumentStripGapTop;
@@ -697,24 +715,82 @@ namespace mRemoteNG.UI.Tabs
                  + ToolWindowImageGapRight + ToolWindowTextGapRight;
         }
 
-        private const int TAB_CLOSE_BUTTON_WIDTH = 30;
-
         private int GetMaxTabWidth_Document(int index)
         {
             IDockContent content = Tabs[index].Content;
             int height = GetTabRectangle_Document(index).Height;
-            Size sizeText = TextRenderer.MeasureText(content.DockHandler.TabText, BoldFont,
-                                                    new Size(DocumentTabMaxWidth, height), DocumentTextFormat);
+            return MeasureDocumentTabText(content, height).Width + GetDocumentTabReservedWidth(content, height);
+        }
 
-            int width;
+        /// <summary>
+        /// The width of a document tab that is not available to its text, so that a tab
+        /// sized for a name leaves <see cref="GetDocumentTextRectangle(int)"/> exactly that wide.
+        /// </summary>
+        private int GetDocumentTabReservedWidth(IDockContent content, int tabHeight)
+        {
+            int width = DocumentIconGapLeft + DocumentTextGapRight + GetDocumentActionButtonsWidth(content, tabHeight);
             if (DockPane.DockPanel.ShowDocumentIcon)
-                width = sizeText.Width + DocumentIconWidth + DocumentIconGapLeft + DocumentIconGapRight +
-                        DocumentTextGapRight;
-            else
-                width = sizeText.Width + DocumentIconGapLeft + DocumentTextGapRight;
-
-            width += TAB_CLOSE_BUTTON_WIDTH;
+                width += DocumentIconWidth + DocumentIconGapRight;
             return width;
+        }
+
+        /// <summary>
+        /// Measures the tab text with the font and format <see cref="DrawTab_Document"/> draws it with.
+        /// </summary>
+        internal Size MeasureDocumentTabText(IDockContent content)
+        {
+            return MeasureDocumentTabText(content, GetTabRectangle_Document(Tabs.IndexOf(content)).Height);
+        }
+
+        private Size MeasureDocumentTabText(IDockContent content, int tabHeight)
+        {
+            return TextRenderer.MeasureText(content.DockHandler.TabText, DocumentTextFont,
+                                            new Size(int.MaxValue, tabHeight), DocumentTextFormat);
+        }
+
+        /// <summary>
+        /// The part of a document tab the text may be drawn in: the tab minus the icon,
+        /// the action buttons and the gaps around them.
+        /// </summary>
+        internal Rectangle GetDocumentTextRectangle(int index)
+        {
+            return GetDocumentTextRectangle(GetTabRectangle_Document(index), Tabs[index].Content);
+        }
+
+        private Rectangle GetDocumentTextRectangle(Rectangle rectTab, IDockContent content)
+        {
+            Rectangle rectIcon = GetDocumentIconRectangle(rectTab);
+            Rectangle rectText = PatchController.EnableHighDpi == true
+                ? new Rectangle(
+                                rectTab.X + DocumentIconGapLeft,
+                                rectTab.Y + rectTab.Height - DocumentIconGapBottom - DocumentTextFont.Height,
+                                DocumentIconWidth, DocumentTextFont.Height)
+                : rectIcon;
+            if (DockPane.DockPanel.ShowDocumentIcon)
+            {
+                rectText.X += rectIcon.Width + DocumentIconGapRight;
+                rectText.Y = rectTab.Y;
+            }
+            rectText.Height = rectTab.Height;
+
+            Rectangle rectCloseButton = GetCloseButtonRect(rectTab, content);
+            Rectangle rectMinimizeButton = GetMinimizeButtonRect(rectTab, content);
+            int textRight = rectTab.Right - DocumentTextGapRight;
+            if (!rectCloseButton.IsEmpty)
+                textRight = Math.Min(textRight, rectCloseButton.Left - DocumentTextGapRight);
+            if (!rectMinimizeButton.IsEmpty)
+                textRight = Math.Min(textRight, rectMinimizeButton.Left - DocumentTextGapRight);
+            rectText.Width = Math.Max(0, textRight - rectText.X);
+
+            return rectText;
+        }
+
+        private static Rectangle GetDocumentIconRectangle(Rectangle rectTab)
+        {
+            return new Rectangle(
+                                 rectTab.X + DocumentIconGapLeft,
+                                 rectTab.Y + rectTab.Height - DocumentIconGapBottom - DocumentIconHeight,
+                                 DocumentIconWidth, DocumentIconHeight);
         }
 
         private void DrawTabStrip(Graphics g)
@@ -961,27 +1037,10 @@ namespace mRemoteNG.UI.Tabs
             if (tab.TabWidth == 0)
                 return;
 
-            Rectangle rectCloseButton = GetCloseButtonRect(rect);
-            Rectangle rectIcon = new(
-                                         rect.X + DocumentIconGapLeft,
-                                         rect.Y + rect.Height - DocumentIconGapBottom - DocumentIconHeight,
-                                         DocumentIconWidth, DocumentIconHeight);
-            Rectangle rectText = PatchController.EnableHighDpi == true
-                ? new Rectangle(
-                                rect.X + DocumentIconGapLeft,
-                                rect.Y + rect.Height - DocumentIconGapBottom - TextFont.Height,
-                                DocumentIconWidth, TextFont.Height)
-                : rectIcon;
-            if (DockPane.DockPanel.ShowDocumentIcon)
-            {
-                rectText.X += rectIcon.Width + DocumentIconGapRight;
-                rectText.Y = rect.Y;
-                rectText.Width = rect.Width - rectIcon.Width - DocumentIconGapLeft - DocumentIconGapRight -
-                                 DocumentTextGapRight - rectCloseButton.Width;
-                rectText.Height = rect.Height;
-            }
-            else
-                rectText.Width = rect.Width - DocumentIconGapLeft - DocumentTextGapRight - rectCloseButton.Width;
+            Rectangle rectCloseButton = GetCloseButtonRect(rect, tab.Content);
+            Rectangle rectMinimizeButton = GetMinimizeButtonRect(rect, tab.Content);
+            Rectangle rectIcon = GetDocumentIconRectangle(rect);
+            Rectangle rectText = GetDocumentTextRectangle(rect, tab.Content);
 
             Rectangle rectTab = DrawHelper.RtlTransform(this, rect);
             Rectangle rectBack = DrawHelper.RtlTransform(this, rect);
@@ -990,6 +1049,8 @@ namespace mRemoteNG.UI.Tabs
 
             rectText = DrawHelper.RtlTransform(this, rectText);
             rectIcon = DrawHelper.RtlTransform(this, rectIcon);
+            Rectangle rectCloseButtonVisual = DrawHelper.RtlTransform(this, rectCloseButton);
+            Rectangle rectMinimizeButtonVisual = DrawHelper.RtlTransform(this, rectMinimizeButton);
 
             // Get custom tab color if available
             Color? customTabColor = GetCustomTabColor(tab.Content);
@@ -1016,7 +1077,7 @@ namespace mRemoteNG.UI.Tabs
                     text = activeText;
                     image = IsMouseDown
                         ? imageService.TabPressActive_Close
-                        : rectCloseButton == ActiveClose
+                        : rectCloseButtonVisual == ActiveClose
                             ? imageService.TabHoverActive_Close
                             : imageService.TabActive_Close;
                 }
@@ -1026,7 +1087,7 @@ namespace mRemoteNG.UI.Tabs
                     text = lostFocusText;
                     image = IsMouseDown
                         ? imageService.TabPressLostFocus_Close
-                        : rectCloseButton == ActiveClose
+                        : rectCloseButtonVisual == ActiveClose
                             ? imageService.TabHoverLostFocus_Close
                             : imageService.TabLostFocus_Close;
                 }
@@ -1039,7 +1100,7 @@ namespace mRemoteNG.UI.Tabs
                     text = mouseHoverText;
                     image = IsMouseDown
                         ? imageService.TabPressInactive_Close
-                        : rectCloseButton == ActiveClose
+                        : rectCloseButtonVisual == ActiveClose
                             ? imageService.TabHoverInactive_Close
                             : imageService.TabInactive_Close;
                 }
@@ -1051,9 +1112,11 @@ namespace mRemoteNG.UI.Tabs
             }
 
             g.FillRectangle(DockPane.DockPanel.Theme.PaintingService.GetBrush(paint), rect);
-            TextRenderer.DrawText(g, tab.Content.DockHandler.TabText, TextFont, rectText, text, DocumentTextFormat);
-            if (image != null)
-                g.DrawImage(image, rectCloseButton);
+            TextRenderer.DrawText(g, tab.Content.DockHandler.TabText, DocumentTextFont, rectText, text, DocumentTextFormat);
+            if (!rectMinimizeButtonVisual.IsEmpty)
+                g.DrawImage(Properties.Resources.GlyphDown_16x, rectMinimizeButtonVisual);
+            if (image != null && !rectCloseButtonVisual.IsEmpty && rectCloseButtonVisual != rectMinimizeButtonVisual)
+                g.DrawImage(image, rectCloseButtonVisual);
 
             if (rectTab.Contains(rectIcon) && DockPane.DockPanel.ShowDocumentIcon)
                 g.DrawIcon(tab.Content.DockHandler.Icon, rectIcon);
@@ -1109,8 +1172,8 @@ namespace mRemoteNG.UI.Tabs
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            // suspend drag if mouse is down on active close button.
-            m_suspendDrag = ActiveCloseHitTest(e.Location);
+            // suspend drag if mouse is down on an action button.
+            m_suspendDrag = ActiveCloseHitTest(e.Location) || ActiveMinimizeHitTest(e.Location);
             if (!IsMouseDown)
                 IsMouseDown = true;
         }
@@ -1120,7 +1183,8 @@ namespace mRemoteNG.UI.Tabs
             if (!m_suspendDrag)
                 base.OnMouseMove(e);
 
-            int index = HitTest(PointToClient(MousePosition));
+            // The position the event was raised for, not where the cursor is by the time it is handled.
+            int index = HitTest(e.Location);
             string toolTip = string.Empty;
 
             bool tabUpdate = false;
@@ -1140,22 +1204,27 @@ namespace mRemoteNG.UI.Tabs
                     else if (tab.MaxWidth > tab.TabWidth)
                         toolTip = tab.Content.DockHandler.TabText;
 
-                    Point mousePos = PointToClient(MousePosition);
+                    Point mousePos = e.Location;
                     if (tab.Rectangle != null)
                     {
                         Rectangle tabRect = tab.Rectangle.Value;
-                        Rectangle closeButtonRect = GetCloseButtonRect(tabRect);
+                        Rectangle minimizeButtonRect = DrawHelper.RtlTransform(this, GetMinimizeButtonRect(tabRect, tab.Content));
+                        Rectangle closeButtonRect = DrawHelper.RtlTransform(this, GetCloseButtonRect(tabRect, tab.Content));
                         Rectangle mouseRect = new(mousePos, new Size(1, 1));
-                        buttonUpdate = SetActiveClose(closeButtonRect.IntersectsWith(mouseRect)
-                                                          ? closeButtonRect
-                                                          : Rectangle.Empty);
+                        bool minimizeUpdated = SetActiveMinimize(minimizeButtonRect.IntersectsWith(mouseRect)
+                                                                     ? minimizeButtonRect
+                                                                     : Rectangle.Empty);
+                        bool closeUpdated = SetActiveClose(closeButtonRect.IntersectsWith(mouseRect)
+                                                               ? closeButtonRect
+                                                               : Rectangle.Empty);
+                        buttonUpdate = minimizeUpdated || closeUpdated;
                     }
                 }
             }
             else
             {
                 tabUpdate = SetMouseOverTab(null);
-                buttonUpdate = SetActiveClose(Rectangle.Empty);
+                buttonUpdate = SetActiveMinimize(Rectangle.Empty) || SetActiveClose(Rectangle.Empty);
             }
 
             if (tabUpdate || buttonUpdate)
@@ -1175,7 +1244,11 @@ namespace mRemoteNG.UI.Tabs
 
             int indexHit = HitTest();
             if (indexHit > -1)
+            {
+                if (TabMinimizeButtonHit(indexHit))
+                    return;
                 TabCloseButtonHit(indexHit);
+            }
         }
 
         private void TabCloseButtonHit(int index)
@@ -1183,21 +1256,133 @@ namespace mRemoteNG.UI.Tabs
             Point mousePos = PointToClient(MousePosition);
             Rectangle tabRect = GetTabBounds(Tabs[index]);
             if (tabRect.Contains(ActiveClose) && ActiveCloseHitTest(mousePos))
-                TryCloseTab(index);
+                CloseTab(index);
         }
 
-        private Rectangle GetCloseButtonRect(Rectangle rectTab)
+        private bool TabMinimizeButtonHit(int index)
         {
-            if (Appearance != DockPane.AppearanceStyle.Document)
+            Point mousePos = PointToClient(MousePosition);
+            Rectangle tabRect = GetTabBounds(Tabs[index]);
+            if (tabRect.Contains(ActiveMinimize) && ActiveMinimizeHitTest(mousePos))
+            {
+                MinimizeConnectionTab(index);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Closes the tab at <paramref name="index"/>, keeping the current selection when
+        /// the tab does not actually close.
+        /// </summary>
+        /// <remarks>
+        /// DockPanelSuite's TryCloseTab selects the neighbouring tab afterwards without
+        /// checking whether the close happened, so dismissing the "are you sure" prompt
+        /// still switched the active connection.
+        /// </remarks>
+        private void CloseTab(int index)
+        {
+            IDockContent tabContent = Tabs[index].Content;
+            IDockContent? activeBeforeClose = DockPane.ActiveContent;
+
+            TryCloseTab(index);
+
+            if (activeBeforeClose == null || ReferenceEquals(DockPane.ActiveContent, activeBeforeClose))
+                return;
+
+            // The tab is still on display, so the close was refused and the selection
+            // moved for nothing.
+            if (DockPane.DisplayingContents.Contains(tabContent) &&
+                DockPane.DisplayingContents.Contains(activeBeforeClose))
+            {
+                activeBeforeClose.DockHandler.Activate();
+            }
+        }
+
+        internal void MinimizeConnectionTab(int index)
+        {
+            if (Tabs[index].Content is not ConnectionTab connectionTab)
+                return;
+
+            if (!connectionTab.CanMinimizeToBottomAutoHide())
+                return;
+
+            connectionTab.MinimizeToBottomAutoHide();
+        }
+
+        private Rectangle GetCloseButtonRect(Rectangle rectTab, IDockContent content)
+        {
+            if (Appearance != DockPane.AppearanceStyle.Document || !ShouldShowCloseButton(content))
             {
                 return Rectangle.Empty;
             }
 
-            const int gap = 3;
-            int imageSize = PatchController.EnableHighDpi == true ? rectTab.Height - gap * 2 : 15;
-            return new Rectangle(rectTab.X + rectTab.Width - imageSize - gap - 1, rectTab.Y + gap, imageSize,
-                                 imageSize);
+            return GetRightAlignedDocumentButtonRect(rectTab);
         }
+
+        private Rectangle GetRightAlignedDocumentButtonRect(Rectangle rectTab)
+        {
+            int imageSize = GetDocumentActionButtonSize(rectTab.Height);
+            int rightEdge = Math.Min(rectTab.Right, TabsRectangle.Right);
+            return new Rectangle(rightEdge - imageSize - DocumentActionButtonGap - 1, rectTab.Y + DocumentActionButtonGap,
+                                 imageSize, imageSize);
+        }
+
+        private static int GetDocumentActionButtonSize(int tabHeight)
+        {
+            return PatchController.EnableHighDpi == true
+                ? tabHeight - DocumentActionButtonGap * 2
+                : _DocumentActionButtonLegacySize;
+        }
+
+        /// <summary>
+        /// Width taken up at the right edge of a document tab by the close and minimize
+        /// buttons, laid out as <see cref="GetCloseButtonRect"/> and
+        /// <see cref="GetMinimizeButtonRect"/> place them. Zero when the tab shows neither.
+        /// </summary>
+        private int GetDocumentActionButtonsWidth(IDockContent content, int tabHeight)
+        {
+            int buttonCount = (ShouldShowCloseButton(content) ? 1 : 0) + (CanShowMinimizeButton(content) ? 1 : 0);
+            if (buttonCount == 0)
+                return 0;
+
+            int buttonSize = GetDocumentActionButtonSize(tabHeight);
+            return DocumentActionButtonGap + 1 + buttonSize + (buttonCount - 1) * (DocumentActionButtonSpacing + buttonSize);
+        }
+
+        private Rectangle GetMinimizeButtonRect(Rectangle rectTab, IDockContent content)
+        {
+            if (Appearance != DockPane.AppearanceStyle.Document || !CanShowMinimizeButton(content))
+            {
+                return Rectangle.Empty;
+            }
+
+            Rectangle closeButtonRect = GetCloseButtonRect(rectTab, content);
+            if (closeButtonRect.IsEmpty)
+            {
+                Rectangle rightAlignedButtonRect = GetRightAlignedDocumentButtonRect(rectTab);
+                return rightAlignedButtonRect.Left >= rectTab.Left ? rightAlignedButtonRect : Rectangle.Empty;
+            }
+
+            Rectangle minimizeButtonRect = new(closeButtonRect.X - closeButtonRect.Width - DocumentActionButtonSpacing,
+                                               closeButtonRect.Y, closeButtonRect.Width, closeButtonRect.Height);
+            return minimizeButtonRect.Left >= rectTab.Left ? minimizeButtonRect : closeButtonRect;
+        }
+
+        private static bool CanShowMinimizeButton(IDockContent content)
+        {
+            return content is ConnectionTab connectionTab && connectionTab.CanMinimizeToBottomAutoHide();
+        }
+
+        private bool ShouldShowCloseButton(IDockContent content)
+        {
+            return content is DockContent dockContent &&
+                   dockContent.CloseButton &&
+                   dockContent.CloseButtonVisible;
+        }
+
+
 
         private void WindowList_Click(object sender, EventArgs e)
         {
@@ -1341,8 +1526,8 @@ namespace mRemoteNG.UI.Tabs
             bool result = base.MouseDownActivateTest(e);
             if (result && (e.Button == MouseButtons.Left) && (Appearance == DockPane.AppearanceStyle.Document))
             {
-                // don't activate if mouse is down on active close button
-                result = !ActiveCloseHitTest(e.Location);
+                // don't activate if mouse is down on an action button
+                result = !ActiveCloseHitTest(e.Location) && !ActiveMinimizeHitTest(e.Location);
             }
 
             return result;
@@ -1355,6 +1540,13 @@ namespace mRemoteNG.UI.Tabs
             return ActiveClose.IntersectsWith(mouseRect);
         }
 
+        private bool ActiveMinimizeHitTest(Point ptMouse)
+        {
+            if (ActiveMinimize.IsEmpty) return false;
+            Rectangle mouseRect = new(ptMouse, new Size(1, 1));
+            return ActiveMinimize.IntersectsWith(mouseRect);
+        }
+
         protected override Rectangle GetTabBounds(Tab tab)
         {
             GraphicsPath path = GetTabOutline(tab, true, false);
@@ -1364,12 +1556,23 @@ namespace mRemoteNG.UI.Tabs
 
         private Rectangle ActiveClose { get; set; }
 
+        private Rectangle ActiveMinimize { get; set; }
+
         private bool SetActiveClose(Rectangle rectangle)
         {
             if (ActiveClose == rectangle)
                 return false;
 
             ActiveClose = rectangle;
+            return true;
+        }
+
+        private bool SetActiveMinimize(Rectangle rectangle)
+        {
+            if (ActiveMinimize == rectangle)
+                return false;
+
+            ActiveMinimize = rectangle;
             return true;
         }
 
@@ -1385,7 +1588,7 @@ namespace mRemoteNG.UI.Tabs
         protected override void OnMouseLeave(EventArgs e)
         {
             bool tabUpdate = SetMouseOverTab(null);
-            bool buttonUpdate = SetActiveClose(Rectangle.Empty);
+            bool buttonUpdate = SetActiveMinimize(Rectangle.Empty) || SetActiveClose(Rectangle.Empty);
             if (tabUpdate || buttonUpdate)
                 Invalidate();
 

@@ -16,6 +16,7 @@ namespace mRemoteNG.Container
     public class ContainerInfo : ConnectionInfo, INotifyCollectionChanged
     {
         private bool _isExpanded;
+        private bool _isRootGroup;
 
         [Browsable(false)] public List<ConnectionInfo> Children { get; } = [];
 
@@ -24,6 +25,19 @@ namespace mRemoteNG.Container
         {
             get => _isExpanded;
             set => SetField(ref _isExpanded, value, "IsExpanded");
+        }
+
+        /// <summary>
+        /// When true, this container is displayed by the connection tree as a top-level
+        /// root group (a peer of the main "Connections" root) instead of being nested
+        /// under its actual parent. It remains a real child of its parent in the
+        /// underlying model for save/load purposes.
+        /// </summary>
+        [Category(""), Browsable(false), ReadOnly(false), Bindable(false), DefaultValue(""), DesignOnly(false)]
+        public bool IsRootGroup
+        {
+            get => _isRootGroup;
+            set => SetField(ref _isRootGroup, value, "IsRootGroup");
         }
 
         [Browsable(false)]
@@ -96,7 +110,10 @@ namespace mRemoteNG.Container
         public virtual void RemoveChild(ConnectionInfo removalTarget)
         {
             if (!Children.Contains(removalTarget)) return;
-            removalTarget.Parent = null;
+            // Parent is typed non-nullable but null is the established sentinel for a detached node
+            // (see AddChildAt's "Parent?.RemoveChild" call). Making the property nullable would
+            // cascade across the whole codebase, so the detach assignment is null-forgiven here.
+            removalTarget.Parent = null!;
             Children.Remove(removalTarget);
             UnsubscribeToChildEvents(removalTarget);
             RaiseCollectionChangedEvent(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removalTarget));
@@ -220,7 +237,7 @@ namespace mRemoteNG.Container
             foreach (ConnectionInfo child in Children)
             {
                 childList.Add(child);
-                ContainerInfo childContainer = child as ContainerInfo;
+                ContainerInfo? childContainer = child as ContainerInfo;
                 if (childContainer != null)
                     childList.AddRange(GetRecursiveChildList(childContainer));
             }
@@ -234,7 +251,7 @@ namespace mRemoteNG.Container
             foreach (ConnectionInfo child in container.Children)
             {
                 childList.Add(child);
-                ContainerInfo childContainer = child as ContainerInfo;
+                ContainerInfo? childContainer = child as ContainerInfo;
                 if (childContainer != null)
                     childList.AddRange(GetRecursiveChildList(childContainer));
             }
@@ -249,7 +266,7 @@ namespace mRemoteNG.Container
             {
                 if (child.Favorite && child.GetTreeNodeType() == TreeNodeType.Connection)
                     childList.Add(child);
-                ContainerInfo childContainer = child as ContainerInfo;
+                ContainerInfo? childContainer = child as ContainerInfo;
                 if (childContainer != null)
                     childList.AddRange(GetRecursiveFavoritChildList(childContainer));
             }
@@ -277,11 +294,17 @@ namespace mRemoteNG.Container
         public void ApplyInheritancePropertiesToChildren()
         {
             IEnumerable<ConnectionInfo> children = GetRecursiveChildList();
+            bool anyChild = false;
 
             foreach (ConnectionInfo child in children)
             {
                 child.Inheritance = Inheritance.Clone(child);
+                anyChild = true;
             }
+
+            // One notification for the whole subtree, so the change is saved once rather than once per child.
+            if (anyChild)
+                RaiseInheritanceChanged();
         }
 
         private IEnumerable<ConnectionInfo> GetRecursiveFavoritChildList(ContainerInfo container)
@@ -291,7 +314,7 @@ namespace mRemoteNG.Container
             {
                 if (child.Favorite && child.GetTreeNodeType() == TreeNodeType.Connection)
                     childList.Add(child);
-                ContainerInfo childContainer = child as ContainerInfo;
+                ContainerInfo? childContainer = child as ContainerInfo;
                 if (childContainer != null)
                     childList.AddRange(GetRecursiveFavoritChildList(childContainer));
             }
@@ -301,7 +324,7 @@ namespace mRemoteNG.Container
         protected virtual void SubscribeToChildEvents(ConnectionInfo child)
         {
             child.PropertyChanged += RaisePropertyChangedEvent;
-            ContainerInfo childAsContainer = child as ContainerInfo;
+            ContainerInfo? childAsContainer = child as ContainerInfo;
             if (childAsContainer == null) return;
             childAsContainer.CollectionChanged += RaiseCollectionChangedEvent;
         }
@@ -309,14 +332,14 @@ namespace mRemoteNG.Container
         protected virtual void UnsubscribeToChildEvents(ConnectionInfo child)
         {
             child.PropertyChanged -= RaisePropertyChangedEvent;
-            ContainerInfo childAsContainer = child as ContainerInfo;
+            ContainerInfo? childAsContainer = child as ContainerInfo;
             if (childAsContainer == null) return;
             childAsContainer.CollectionChanged -= RaiseCollectionChangedEvent;
         }
 
         public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
-        private void RaiseCollectionChangedEvent(object sender, NotifyCollectionChangedEventArgs args)
+        private void RaiseCollectionChangedEvent(object? sender, NotifyCollectionChangedEventArgs args)
         {
             CollectionChanged?.Invoke(sender, args);
         }

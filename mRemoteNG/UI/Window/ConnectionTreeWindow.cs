@@ -13,6 +13,7 @@ using mRemoteNG.Themes;
 using mRemoteNG.Tree;
 using mRemoteNG.Tree.ClickHandlers;
 using mRemoteNG.Tree.Root;
+using mRemoteNG.UI.Controls;
 using mRemoteNG.UI.Controls.ConnectionTree;
 using mRemoteNG.UI.TaskDialog;
 using WeifenLuo.WinFormsUI.Docking;
@@ -43,6 +44,8 @@ namespace mRemoteNG.UI.Window
             DockPnl = panel;
             Icon = Resources.ImageConverter.GetImageAsIcon(Properties.Resources.ASPWebSite_16x);
             InitializeComponent();
+            // the designer docks the search bar at the bottom; apply the saved preference at startup
+            PlaceSearchBar(Settings.Default.PlaceSearchBarAboveConnectionTree);
             SetMenuEventHandlers();
             SetConnectionTreeEventHandlers();
             Settings.Default.PropertyChanged += OnAppSettingsChanged;
@@ -56,6 +59,9 @@ namespace mRemoteNG.UI.Window
                 ConnectionTree.UseFiltering = Settings.Default.UseFilterSearch;
                 ApplyFiltering();
             }
+
+            if (propertyChangedEventArgs.PropertyName == nameof(Settings.SlowClickRenameEnabled))
+                ConnectionTree.SetupSlowClickRename();
 
             PlaceSearchBar(Settings.Default.PlaceSearchBarAboveConnectionTree);
             SetConnectionTreeClickHandlers();
@@ -89,12 +95,25 @@ namespace mRemoteNG.UI.Window
 
             mMenAddConnection.ToolTipText = Language.NewConnection;
             mMenAddFolder.ToolTipText = Language.NewFolder;
+            mMenAddRoot.ToolTipText = Language.AddRoot;
             mMenViewExpandAllFolders.ToolTipText = Language.ExpandAllFolders;
             mMenViewCollapseAllFolders.ToolTipText = Language.CollapseAllFolders;
             mMenSort.ToolTipText = Language.Sort;
             mMenFavorites.ToolTipText = Language.Favorites;
 
             txtSearch.Text = Language.SearchPrompt;
+        }
+
+        internal void RefreshUiLanguage()
+        {
+            if (IsDisposed)
+                return;
+
+            ApplyLanguage();
+            if (ConnectionTree.ContextMenuStrip is ConnectionContextMenu connectionContextMenu)
+            {
+                connectionContextMenu.RefreshUiLanguage();
+            }
         }
 
         private new void ApplyTheme()
@@ -143,7 +162,9 @@ namespace mRemoteNG.UI.Window
                 new RootNodeExpander()
             };
 
-            if (Properties.OptionsStartupExitPage.Default.OpenConsFromLastSession && !Properties.OptionsAdvancedPage.Default.NoReconnect)
+            // OptionsAdvancedPage.NoReconnect is the "reconnect automatically when disconnected" option,
+            // not a reason to skip the previous sessions (#3178)
+            if (Properties.OptionsStartupExitPage.Default.OpenConsFromLastSession && !Runtime.NoReconnectToPreviousSessions)
                 actions.Add(new PreviousSessionOpener(Runtime.ConnectionInitiator));
 
             ConnectionTree.PostSetupActions = actions;
@@ -254,6 +275,11 @@ namespace mRemoteNG.UI.Window
             ConnectionTree.AddFolder();
         }
 
+        private void CMenTreeAddRoot_Click(object sender, EventArgs e)
+        {
+            ConnectionTree.AddRoot();
+        }
+
         #endregion
 
         #region Search
@@ -270,14 +296,14 @@ namespace mRemoteNG.UI.Window
                         break;
                     case Keys.Up:
                         {
-                            ConnectionInfo match = ConnectionTree.NodeSearcher.PreviousMatch();
+                            ConnectionInfo? match = ConnectionTree.NodeSearcher.PreviousMatch();
                             JumpToNode(match);
                             e.Handled = true;
                             break;
                         }
                     case Keys.Down:
                         {
-                            ConnectionInfo match = ConnectionTree.NodeSearcher.NextMatch();
+                            ConnectionInfo? match = ConnectionTree.NodeSearcher.NextMatch();
                             JumpToNode(match);
                             e.Handled = true;
                             break;
@@ -318,7 +344,7 @@ namespace mRemoteNG.UI.Window
             }
         }
 
-        public void JumpToNode(ConnectionInfo connectionInfo)
+        public void JumpToNode(ConnectionInfo? connectionInfo)
         {
             if (connectionInfo == null)
             {

@@ -178,6 +178,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &amp;Sessions.
+        /// </summary>
+        internal static string _Sessions {
+            get {
+                return ResourceManager.GetString("_Sessions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to &amp;Stop.
         /// </summary>
         internal static string _Stop {
@@ -194,7 +203,25 @@ namespace mRemoteNG.Resources.Language {
                 return ResourceManager.GetString("_Tools", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Actions.
+        /// </summary>
+        internal static string Actions {
+            get {
+                return ResourceManager.GetString("Actions", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Minimise.
+        /// </summary>
+        internal static string Minimise {
+            get {
+                return ResourceManager.GetString("Minimise", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to &amp;Try again.
         /// </summary>
@@ -291,6 +318,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string Advanced {
             get {
                 return ResourceManager.GetString("Advanced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Advanced &gt;&gt;.
+        /// </summary>
+        internal static string AdvancedExpand {
+            get {
+                return ResourceManager.GetString("AdvancedExpand", resourceCulture);
             }
         }
         
@@ -574,6 +610,42 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Backup folder.
+        /// </summary>
+        internal static string BackupFolder {
+            get {
+                return ResourceManager.GetString("BackupFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to to DB.
+        /// </summary>
+        internal static string BackupToDb {
+            get {
+                return ResourceManager.GetString("BackupToDb", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to to File.
+        /// </summary>
+        internal static string BackupToFile {
+            get {
+                return ResourceManager.GetString("BackupToFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bind Connections and Config panels together when auto-hidden.
+        /// </summary>
+        internal static string BindConnectionsAndConfigPanels {
+            get {
+                return ResourceManager.GetString("BindConnectionsAndConfigPanels", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Browse.
         /// </summary>
         internal static string btnBrowsePath {
@@ -664,7 +736,7 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Display reconnection dialog when disconnected from server (RDP &amp;&amp; ICA only).
+        ///   Looks up a localized string similar to Automatically try to reconnect when disconnected from server (RDP &amp;&amp; ICA only).
         /// </summary>
         internal static string CheckboxAutomaticReconnect {
             get {
@@ -790,6 +862,78 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Choose schema:.
+        /// </summary>
+        internal static string ChooseSchema {
+            get {
+                return ResourceManager.GetString("ChooseSchema", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clear Cached RDP Credentials.
+        /// </summary>
+        internal static string ClearCachedRdpCredentials {
+            get {
+                return ResourceManager.GetString("ClearCachedRdpCredentials", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Wake up (Wake-on-LAN).
+        /// </summary>
+        internal static string WakeOnLan {
+            get {
+                return ResourceManager.GetString("WakeOnLan", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Sends a Wake-on-LAN magic packet....
+        /// </summary>
+        internal static string PropertyDescriptionWakeOnLan {
+            get {
+                return ResourceManager.GetString("PropertyDescriptionWakeOnLan", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No MAC address is configured for this connection....
+        /// </summary>
+        internal static string WakeOnLanNoMacAddress {
+            get {
+                return ResourceManager.GetString("WakeOnLanNoMacAddress", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A Wake-on-LAN magic packet was sent to {0}..
+        /// </summary>
+        internal static string WakeOnLanSent {
+            get {
+                return ResourceManager.GetString("WakeOnLanSent", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to send a Wake-on-LAN magic packet to {0}..
+        /// </summary>
+        internal static string WakeOnLanFailed {
+            get {
+                return ResourceManager.GetString("WakeOnLanFailed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cleared cached RDP credentials for {0}..
+        /// </summary>
+        internal static string ClearedCachedRdpCredentials {
+            get {
+                return ResourceManager.GetString("ClearedCachedRdpCredentials", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Clear search string.
         /// </summary>
         internal static string ClearSearchString {
@@ -849,6 +993,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string Color {
             get {
                 return ResourceManager.GetString("Color", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Color Name.
+        /// </summary>
+        internal static string ColorName {
+            get {
+                return ResourceManager.GetString("ColorName", resourceCulture);
             }
         }
         
@@ -1029,6 +1182,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string ConfirmCloseConnectionPanelMainInstruction {
             get {
                 return ResourceManager.GetString("ConfirmCloseConnectionPanelMainInstruction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Delete the cached credential for {0}?.
+        /// </summary>
+        internal static string ConfirmDeleteCachedRdpCredential {
+            get {
+                return ResourceManager.GetString("ConfirmDeleteCachedRdpCredential", resourceCulture);
             }
         }
         
@@ -1240,6 +1402,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Connection Properties.
+        /// </summary>
+        internal static string ConnectionProperties {
+            get {
+                return ResourceManager.GetString("ConnectionProperties", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Connections.
         /// </summary>
         internal static string Connections {
@@ -1349,6 +1520,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Connection time-out (s):.
+        /// </summary>
+        internal static string ConnectionTimeoutSeconds {
+            get {
+                return ResourceManager.GetString("ConnectionTimeoutSeconds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Connect without credentials.
         /// </summary>
         internal static string ConnectNoCredentials {
@@ -1430,6 +1610,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Copy to Clipboard.
+        /// </summary>
+        internal static string CopyToClipboard {
+            get {
+                return ResourceManager.GetString("CopyToClipboard", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Couldn&apos;t create new connections file!.
         /// </summary>
         internal static string CouldNotCreateNewConnectionsFile {
@@ -1466,11 +1655,29 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Create table structure.
+        /// </summary>
+        internal static string CreateTableStructure {
+            get {
+                return ResourceManager.GetString("CreateTableStructure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Credentials.
         /// </summary>
         internal static string Credentials {
             get {
                 return ResourceManager.GetString("Credentials", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User via API ID:.
+        /// </summary>
+        internal static string CredentialsUserViaAPI {
+            get {
+                return ResourceManager.GetString("CredentialsUserViaAPI", resourceCulture);
             }
         }
         
@@ -1529,11 +1736,74 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Database Connection Manager.
+        /// </summary>
+        internal static string DatabaseConnectionManager {
+            get {
+                return ResourceManager.GetString("DatabaseConnectionManager", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Database name:.
+        /// </summary>
+        internal static string DatabaseName {
+            get {
+                return ResourceManager.GetString("DatabaseName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Database &apos;{0}&apos; not available..
         /// </summary>
         internal static string DatabaseNotAvailable {
             get {
                 return ResourceManager.GetString("DatabaseNotAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Database Platform:.
+        /// </summary>
+        internal static string DatabasePlatform {
+            get {
+                return ResourceManager.GetString("DatabasePlatform", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to db admin password:.
+        /// </summary>
+        internal static string DbAdminPassword {
+            get {
+                return ResourceManager.GetString("DbAdminPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to db admin User:.
+        /// </summary>
+        internal static string DbAdminUser {
+            get {
+                return ResourceManager.GetString("DbAdminUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to db user:.
+        /// </summary>
+        internal static string DbUser {
+            get {
+                return ResourceManager.GetString("DbUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to db user password:.
+        /// </summary>
+        internal static string DbUserPassword {
+            get {
+                return ResourceManager.GetString("DbUserPassword", resourceCulture);
             }
         }
         
@@ -1592,6 +1862,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Disable.
+        /// </summary>
+        internal static string Disable {
+            get {
+                return ResourceManager.GetString("Disable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Disable Cursor Blinking.
         /// </summary>
         internal static string DisableCursorBlinking {
@@ -1624,6 +1903,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string DisableMenuAnimations {
             get {
                 return ResourceManager.GetString("DisableMenuAnimations", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Disable Refocus.
+        /// </summary>
+        internal static string DisableRefocus {
+            get {
+                return ResourceManager.GetString("DisableRefocus", resourceCulture);
             }
         }
         
@@ -1687,6 +1975,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string DisplayName {
             get {
                 return ResourceManager.GetString("DisplayName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Display reconnection dialog when disconnected from server (RDP &amp;&amp; ICA only).
+        /// </summary>
+        internal static string DisplayReconnectionDialog {
+            get {
+                return ResourceManager.GetString("DisplayReconnectionDialog", resourceCulture);
             }
         }
         
@@ -1907,6 +2204,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Element.
+        /// </summary>
+        internal static string Element {
+            get {
+                return ResourceManager.GetString("Element", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Do you want to continue with no password?.
         /// </summary>
         internal static string EmptyPasswordContinue {
@@ -1925,11 +2231,56 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Enable.
+        /// </summary>
+        internal static string Enable {
+            get {
+                return ResourceManager.GetString("Enable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enable Always Encrypted:.
+        /// </summary>
+        internal static string EnableAlwaysEncrypted {
+            get {
+                return ResourceManager.GetString("EnableAlwaysEncrypted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Desktop Composition.
         /// </summary>
         internal static string EnableDesktopComposition {
             get {
                 return ResourceManager.GetString("EnableDesktopComposition", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enable MARS:.
+        /// </summary>
+        internal static string EnableMARS {
+            get {
+                return ResourceManager.GetString("EnableMARS", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enable secure enclaves:.
+        /// </summary>
+        internal static string EnableSecureEnclaves {
+            get {
+                return ResourceManager.GetString("EnableSecureEnclaves", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enclave attestation:.
+        /// </summary>
+        internal static string EnclaveAttestation {
+            get {
+                return ResourceManager.GetString("EnclaveAttestation", resourceCulture);
             }
         }
         
@@ -1975,6 +2326,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string EncryptionKeyDerivationIterations {
             get {
                 return ResourceManager.GetString("EncryptionKeyDerivationIterations", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Encryption:.
+        /// </summary>
+        internal static string EncryptionLabel {
+            get {
+                return ResourceManager.GetString("EncryptionLabel", resourceCulture);
             }
         }
         
@@ -2163,6 +2523,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Execution time-out (s):.
+        /// </summary>
+        internal static string ExecutionTimeoutSeconds {
+            get {
+                return ResourceManager.GetString("ExecutionTimeoutSeconds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Exit.
         /// </summary>
         internal static string Exit {
@@ -2278,6 +2647,15 @@ namespace mRemoteNG.Resources.Language {
                 return ResourceManager.GetString("ExternalTool", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Category.
+        /// </summary>
+        internal static string ExternalToolCategory {
+            get {
+                return ResourceManager.GetString("ExternalToolCategory", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to External Tool After.
@@ -2321,6 +2699,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string ExternalToolsToolbar {
             get {
                 return ResourceManager.GetString("ExternalToolsToolbar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to clear cached RDP credentials for {0}. See the Messages pane for details..
+        /// </summary>
+        internal static string FailedToClearCachedRdpCredential {
+            get {
+                return ResourceManager.GetString("FailedToClearCachedRdpCredential", resourceCulture);
             }
         }
         
@@ -2465,6 +2852,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string FilterRDP {
             get {
                 return ResourceManager.GetString("FilterRDP", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Royal TS documents (*.rtsz).
+        /// </summary>
+        internal static string FilterRoyalTs {
+            get {
+                return ResourceManager.GetString("FilterRoyalTs", resourceCulture);
             }
         }
         
@@ -2676,11 +3072,65 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Host name in certificate:.
+        /// </summary>
+        internal static string HostNameInCertificate {
+            get {
+                return ResourceManager.GetString("HostNameInCertificate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Hostname/IP.
         /// </summary>
         internal static string HostnameIp {
             get {
                 return ResourceManager.GetString("HostnameIp", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;{0}&quot; is already used by these connections:{1}.
+        /// </summary>
+        internal static string HostnameAlreadyExists {
+            get {
+                return ResourceManager.GetString("HostnameAlreadyExists", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to IP Address.
+        /// </summary>
+        internal static string IpAddress {
+            get {
+                return ResourceManager.GetString("IpAddress", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Use IP address for imported connections.
+        /// </summary>
+        internal static string UseIpAddressForImport {
+            get {
+                return ResourceManager.GetString("UseIpAddressForImport", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Use user profiles to store connections (experimental, takes effect after restart).
+        /// </summary>
+        internal static string UseUserProfiles {
+            get {
+                return ResourceManager.GetString("UseUserProfiles", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Import all open ports as selected protocol.
+        /// </summary>
+        internal static string ImportAllOpenPorts {
+            get {
+                return ResourceManager.GetString("ImportAllOpenPorts", resourceCulture);
             }
         }
         
@@ -2910,6 +3360,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Jump to Session {0}.
+        /// </summary>
+        internal static string JumpToSession {
+            get {
+                return ResourceManager.GetString("JumpToSession", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to (Automatically Detect).
         /// </summary>
         internal static string LanguageDefault {
@@ -3054,6 +3513,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Send my display scaling (DPI) to the remote computer (disable if the remote desktop appears zoomed in, e.g. GNOME Remote Desktop on Linux).
+        /// </summary>
+        internal static string RdpSendDesktopScaleFactor {
+            get {
+                return ResourceManager.GetString("RdpSendDesktopScaleFactor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Load from SQL failed.
         /// </summary>
         internal static string LoadFromSqlFailed {
@@ -3158,6 +3626,33 @@ namespace mRemoteNG.Resources.Language {
         internal static string MacAddress {
             get {
                 return ResourceManager.GetString("MacAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Make a backup.
+        /// </summary>
+        internal static string MakeABackup {
+            get {
+                return ResourceManager.GetString("MakeABackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Windows User Account (DPAPI).
+        /// </summary>
+        internal static string MasterKeyProviderDpapi {
+            get {
+                return ResourceManager.GetString("MasterKeyProviderDpapi", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Password.
+        /// </summary>
+        internal static string MasterKeyProviderPassword {
+            get {
+                return ResourceManager.GetString("MasterKeyProviderPassword", resourceCulture);
             }
         }
         
@@ -3268,6 +3763,15 @@ namespace mRemoteNG.Resources.Language {
                 return ResourceManager.GetString("MinimizeToSysTray", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Minimize tab.
+        /// </summary>
+        internal static string MinimizeTab {
+            get {
+                return ResourceManager.GetString("MinimizeTab", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Minutes to Idle.
@@ -3275,6 +3779,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string MinutesToIdleTimeout {
             get {
                 return ResourceManager.GetString("MinutesToIdleTimeout", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Alert on Idle Disconnect.
+        /// </summary>
+        internal static string AlertIdleTimeout {
+            get {
+                return ResourceManager.GetString("AlertIdleTimeout", resourceCulture);
             }
         }
         
@@ -3432,6 +3945,24 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Network packet size (bytes):.
+        /// </summary>
+        internal static string NetworkPacketSize {
+            get {
+                return ResourceManager.GetString("NetworkPacketSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Network protocol:.
+        /// </summary>
+        internal static string NetworkProtocol {
+            get {
+                return ResourceManager.GetString("NetworkProtocol", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Never.
         /// </summary>
         internal static string Never {
@@ -3466,7 +3997,16 @@ namespace mRemoteNG.Resources.Language {
                 return ResourceManager.GetString("NewExternalTool", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Add Root.
+        /// </summary>
+        internal static string AddRoot {
+            get {
+                return ResourceManager.GetString("AddRoot", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to New Folder.
         /// </summary>
@@ -3495,11 +4035,29 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Next Session.
+        /// </summary>
+        internal static string NextSession {
+            get {
+                return ResourceManager.GetString("NextSession", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No.
         /// </summary>
         internal static string No {
             get {
                 return ResourceManager.GetString("No", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No cached RDP credential was found for {0}. Nothing to delete..
+        /// </summary>
+        internal static string NoCachedRdpCredentialFound {
+            get {
+                return ResourceManager.GetString("NoCachedRdpCredentialFound", resourceCulture);
             }
         }
         
@@ -3609,6 +4167,33 @@ namespace mRemoteNG.Resources.Language {
         internal static string OldConffile {
             get {
                 return ResourceManager.GetString("OldConffile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to On edit.
+        /// </summary>
+        internal static string OnEdit {
+            get {
+                return ResourceManager.GetString("OnEdit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to On exit.
+        /// </summary>
+        internal static string OnExit {
+            get {
+                return ResourceManager.GetString("OnExit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to On save.
+        /// </summary>
+        internal static string OnSave {
+            get {
+                return ResourceManager.GetString("OnSave", resourceCulture);
             }
         }
         
@@ -3759,9 +4344,9 @@ namespace mRemoteNG.Resources.Language {
         /// <summary>
         ///   Looks up a localized string similar to Page control in Options menu.
         /// </summary>
-        internal static string PageСontrolInOptionsMenu {
+        internal static string PageControlInOptionsMenu {
             get {
-                return ResourceManager.GetString("PageСontrolInOptionsMenu", resourceCulture);
+                return ResourceManager.GetString("PageControlInOptionsMenu", resourceCulture);
             }
         }
         
@@ -3789,6 +4374,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string PanelName {
             get {
                 return ResourceManager.GetString("PanelName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Generate an encrypted password suitable for registry settings..
+        /// </summary>
+        internal static string PasswdGenDescription {
+            get {
+                return ResourceManager.GetString("PasswdGenDescription", resourceCulture);
             }
         }
         
@@ -3865,7 +4459,7 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The password must be at least 3 characters long..
+        ///   Looks up a localized string similar to The password must be at least 4 characters long..
         /// </summary>
         internal static string PasswordStatusTooShort {
             get {
@@ -3935,6 +4529,78 @@ namespace mRemoteNG.Resources.Language {
                 return ResourceManager.GetString("PortScan", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Scan target.
+        /// </summary>
+        internal static string PortScanAddressRange {
+            get {
+                return ResourceManager.GetString("PortScanAddressRange", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Enter a single address, a range (192.168.1.1 - 192.168.1.254) or a CIDR block (192.168.1.0/24). IPv4 and IPv6 are supported..
+        /// </summary>
+        internal static string PortScanAddressRangeHint {
+            get {
+                return ResourceManager.GetString("PortScanAddressRangeHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to 192.168.1.0/24.
+        /// </summary>
+        internal static string PortScanAddressRangePlaceholder {
+            get {
+                return ResourceManager.GetString("PortScanAddressRangePlaceholder", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to All ports.
+        /// </summary>
+        internal static string PortScanAllPorts {
+            get {
+                return ResourceManager.GetString("PortScanAllPorts", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Common ports.
+        /// </summary>
+        internal static string PortScanCommonPorts {
+            get {
+                return ResourceManager.GetString("PortScanCommonPorts", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Custom.
+        /// </summary>
+        internal static string PortScanCustomPorts {
+            get {
+                return ResourceManager.GetString("PortScanCustomPorts", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Enter a list of ports and/or ranges, e.g. 22, 80, 443, 3389, 8000-8100..
+        /// </summary>
+        internal static string PortScanCustomPortsHint {
+            get {
+                return ResourceManager.GetString("PortScanCustomPortsHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to 22, 80, 443, 3389, 8000-8100.
+        /// </summary>
+        internal static string PortScanCustomPortsPlaceholder {
+            get {
+                return ResourceManager.GetString("PortScanCustomPortsPlaceholder", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Port scan complete..
@@ -3960,6 +4626,24 @@ namespace mRemoteNG.Resources.Language {
         internal static string PowerShell {
             get {
                 return ResourceManager.GetString("PowerShell", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Previous Session.
+        /// </summary>
+        internal static string PreviousSession {
+            get {
+                return ResourceManager.GetString("PreviousSession", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Primary.
+        /// </summary>
+        internal static string PrimaryScreen {
+            get {
+                return ResourceManager.GetString("PrimaryScreen", resourceCulture);
             }
         }
         
@@ -4023,6 +4707,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string PropertyDescriptionCacheBitmaps {
             get {
                 return ResourceManager.GetString("PropertyDescriptionCacheBitmaps", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to If an RDP connection fails with an authentication error, Windows may be substituting a stale cached credential for the credentials configured on this connection. Use this action to delete the TERMSRV/&lt;hostname&gt; entry from the Windows Credential Manager so the credentials on this connection are sent unchanged on the next attempt..
+        /// </summary>
+        internal static string PropertyDescriptionClearCachedRdpCredentials {
+            get {
+                return ResourceManager.GetString("PropertyDescriptionClearCachedRdpCredentials", resourceCulture);
             }
         }
         
@@ -4531,6 +5224,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Select whether WebAuthn requests (passkeys, Windows Hello, FIDO2 security keys) made in the remote session should be redirected to this computer.
+        /// </summary>
+        internal static string PropertyDescriptionRedirectWebAuthn {
+            get {
+                return ResourceManager.GetString("PropertyDescriptionRedirectWebAuthn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Select how remote sound should be redirected..
         /// </summary>
         internal static string PropertyDescriptionRedirectSounds {
@@ -4545,6 +5247,42 @@ namespace mRemoteNG.Resources.Language {
         internal static string PropertyDescriptionRenderingEngine {
             get {
                 return ResourceManager.GetString("PropertyDescriptionRenderingEngine", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Selects the terminal backend used to open this SSH connection inside the mRemoteNG panel. PuTTYNG keeps the embedded PuTTYNG terminal, while Windows Terminal embeds the Windows console running the system OpenSSH client..
+        /// </summary>
+        internal static string PropertyDescriptionTerminalBackend {
+            get {
+                return ResourceManager.GetString("PropertyDescriptionTerminalBackend", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Terminal backend.
+        /// </summary>
+        internal static string TerminalBackend {
+            get {
+                return ResourceManager.GetString("TerminalBackend", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to PuTTYNG.
+        /// </summary>
+        internal static string TerminalBackendPuttyNg {
+            get {
+                return ResourceManager.GetString("TerminalBackendPuttyNg", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Windows Terminal.
+        /// </summary>
+        internal static string TerminalBackendWindowsTerminal {
+            get {
+                return ResourceManager.GetString("TerminalBackendWindowsTerminal", resourceCulture);
             }
         }
         
@@ -4644,6 +5382,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string PropertyDescriptionUseRCG {
             get {
                 return ResourceManager.GetString("PropertyDescriptionUseRCG", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use the redirection server name instead of the connection hostname for RDP connections..
+        /// </summary>
+        internal static string PropertyDescriptionUseRedirectionServerName {
+            get {
+                return ResourceManager.GetString("PropertyDescriptionUseRedirectionServerName", resourceCulture);
             }
         }
         
@@ -4774,12 +5521,20 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Protocol Event Disconnected failed.
-        ///{0}.
+        ///   Looks up a localized string similar to Protocol Event Disconnected failed.{0}.
         /// </summary>
         internal static string ProtocolEventDisconnectFailed {
             get {
                 return ResourceManager.GetString("ProtocolEventDisconnectFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Protocol:.
+        /// </summary>
+        internal static string ProtocolLabel {
+            get {
+                return ResourceManager.GetString("ProtocolLabel", resourceCulture);
             }
         }
         
@@ -4933,6 +5688,24 @@ namespace mRemoteNG.Resources.Language {
         internal static string PuttyKillFailed {
             get {
                 return ResourceManager.GetString("PuttyKillFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error serving the password pipe to PuTTY.
+        /// </summary>
+        internal static string PuttyPasswordPipeFailed {
+            get {
+                return ResourceManager.GetString("PuttyPasswordPipeFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to PuTTY did not read the password pipe in time; the password was not sent..
+        /// </summary>
+        internal static string PuttyPasswordPipeTimedOut {
+            get {
+                return ResourceManager.GetString("PuttyPasswordPipeTimedOut", resourceCulture);
             }
         }
         
@@ -5117,7 +5890,7 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 256 Colours (8-bit).
+        ///   Looks up a localized string similar to 256 Colors (8-bit).
         /// </summary>
         internal static string Rdp256Colors {
             get {
@@ -5531,6 +6304,24 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to enable WebAuthn redirection (PluginDlls).
+        /// </summary>
+        internal static string RdpWebAuthnPluginFailed {
+            get {
+                return ResourceManager.GetString("RdpWebAuthnPluginFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to WebAuthn redirection plugin not found at '{0}'.
+        /// </summary>
+        internal static string RdpWebAuthnPluginNotFound {
+            get {
+                return ResourceManager.GetString("RdpWebAuthnPluginNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to RDP Set Redirect Keys Failed!.
         /// </summary>
         internal static string RdpSetRedirectKeysFailed {
@@ -5698,6 +6489,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string RedirectSmartCards {
             get {
                 return ResourceManager.GetString("RedirectSmartCards", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to WebAuthn (Windows Hello / security keys).
+        /// </summary>
+        internal static string RedirectWebAuthn {
+            get {
+                return ResourceManager.GetString("RedirectWebAuthn", resourceCulture);
             }
         }
         
@@ -5965,6 +6765,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Secure Key Generator.
+        /// </summary>
+        internal static string SecureKeyGenerator {
+            get {
+                return ResourceManager.GetString("SecureKeyGenerator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Select a panel from the list below or click New to add a new one. Click OK to continue..
         /// </summary>
         internal static string SelectPanel {
@@ -5988,6 +6797,51 @@ namespace mRemoteNG.Resources.Language {
         internal static string SendTo {
             get {
                 return ResourceManager.GetString("SendTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Right-click to also switch RDP to fullscreen.
+        /// </summary>
+        internal static string SendToRightClickFullscreenHint {
+            get {
+                return ResourceManager.GetString("SendToRightClickFullscreenHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Right-click to send without switching RDP to fullscreen.
+        /// </summary>
+        internal static string SendToRightClickWindowedHint {
+            get {
+                return ResourceManager.GetString("SendToRightClickWindowedHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;Send To&quot; a screen switches RDP connections to fullscreen.
+        /// </summary>
+        internal static string SendToScreenUsesRdpFullscreen {
+            get {
+                return ResourceManager.GetString("SendToScreenUsesRdpFullscreen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Server &amp; Credentials.
+        /// </summary>
+        internal static string ServerAndCredentials {
+            get {
+                return ResourceManager.GetString("ServerAndCredentials", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Server name or IP:.
+        /// </summary>
+        internal static string ServerNameOrIp {
+            get {
+                return ResourceManager.GetString("ServerNameOrIp", resourceCulture);
             }
         }
         
@@ -6037,11 +6891,38 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Set Master Password.
+        /// </summary>
+        internal static string SettingsStoreFirstRunTitle {
+            get {
+                return ResourceManager.GetString("SettingsStoreFirstRunTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unlock Settings.
+        /// </summary>
+        internal static string SettingsStoreUnlockTitle {
+            get {
+                return ResourceManager.GetString("SettingsStoreUnlockTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Show description tooltips in connection tree.
         /// </summary>
         internal static string ShowDescriptionTooltips {
             get {
                 return ResourceManager.GetString("ShowDescriptionTooltips", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Enable connection tree expand/collapse animations.
+        /// </summary>
+        internal static string EnableConnectionTreeAnimations {
+            get {
+                return ResourceManager.GetString("EnableConnectionTreeAnimations", resourceCulture);
             }
         }
         
@@ -6125,6 +7006,15 @@ namespace mRemoteNG.Resources.Language {
                 return ResourceManager.GetString("ShowText", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Show PuTTY saved sessions in connection tree.
+        /// </summary>
+        internal static string ShowPuttySessionsInTree {
+            get {
+                return ResourceManager.GetString("ShowPuttySessionsInTree", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Show these message types.
@@ -6150,6 +7040,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string SingleClickOnOpenConnectionSwitchesToIt {
             get {
                 return ResourceManager.GetString("SingleClickOnOpenConnectionSwitchesToIt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Rename items using slow double-click (Explorer style).
+        /// </summary>
+        internal static string SlowClickRenameEnabled {
+            get {
+                return ResourceManager.GetString("SlowClickRenameEnabled", resourceCulture);
             }
         }
         
@@ -6231,6 +7130,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string Sounds {
             get {
                 return ResourceManager.GetString("Sounds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Autentifcation:.
+        /// </summary>
+        internal static string SqlAuthentication {
+            get {
+                return ResourceManager.GetString("SqlAuthentication", resourceCulture);
             }
         }
         
@@ -6505,6 +7413,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Setup.
+        /// </summary>
+        internal static string TabSetup {
+            get {
+                return ResourceManager.GetString("TabSetup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Telnet.
         /// </summary>
         internal static string Telnet {
@@ -6528,6 +7445,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string TestConnection {
             get {
                 return ResourceManager.GetString("TestConnection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Test connection details.
+        /// </summary>
+        internal static string TestConnectionDetails {
+            get {
+                return ResourceManager.GetString("TestConnectionDetails", resourceCulture);
             }
         }
         
@@ -6685,6 +7611,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Trust server certificate:.
+        /// </summary>
+        internal static string TrustServerCertificate {
+            get {
+                return ResourceManager.GetString("TrustServerCertificate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Try to integrate.
         /// </summary>
         internal static string TryToIntegrate {
@@ -6830,6 +7765,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to URL:.
+        /// </summary>
+        internal static string UrlLabel {
+            get {
+                return ResourceManager.GetString("UrlLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Use RD Gateway access token.
         /// </summary>
         internal static string UseAccessToken {
@@ -6911,6 +7855,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Use Redirection Server Name.
+        /// </summary>
+        internal static string UseRedirectionServerName {
+            get {
+                return ResourceManager.GetString("UseRedirectionServerName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Use Restricted Admin.
         /// </summary>
         internal static string UseRestrictedAdmin {
@@ -6934,6 +7887,15 @@ namespace mRemoteNG.Resources.Language {
         internal static string Username {
             get {
                 return ResourceManager.GetString("Username", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Username:.
+        /// </summary>
+        internal static string UsernameLabel {
+            get {
+                return ResourceManager.GetString("UsernameLabel", resourceCulture);
             }
         }
         
@@ -6965,7 +7927,7 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Use SQL Server to load &amp;&amp; save connections.
+        ///   Looks up a localized string similar to Use a database to load &amp;&amp; save connections.
         /// </summary>
         internal static string UseSQLServer {
             get {
@@ -7064,6 +8026,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SSH engine OTP mode.
+        /// </summary>
+        internal static string VaultOpenbaoSecretEngineSSHOTP {
+            get {
+                return ResourceManager.GetString("VaultOpenbaoSecretEngineSSHOTP", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Token for Vault/Openbao.
         /// </summary>
         internal static string VaultOpenbaoToken {
@@ -7087,6 +8058,114 @@ namespace mRemoteNG.Resources.Language {
         internal static string Verify {
             get {
                 return ResourceManager.GetString("Verify", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Stop asking for a profile password at startup?.
+        /// </summary>
+        internal static string ProfilePromptStopAsking {
+            get {
+                return ResourceManager.GetString("ProfilePromptStopAsking", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Show password.
+        /// </summary>
+        internal static string ShowPassword {
+            get {
+                return ResourceManager.GetString("ShowPassword", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Ask for a profile password at startup.
+        /// </summary>
+        internal static string AskProfilePasswordAtStartup {
+            get {
+                return ResourceManager.GetString("AskProfilePasswordAtStartup", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Hide password.
+        /// </summary>
+        internal static string HidePassword {
+            get {
+                return ResourceManager.GetString("HidePassword", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Strength: {0}.
+        /// </summary>
+        internal static string PasswordStrength {
+            get {
+                return ResourceManager.GetString("PasswordStrength", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Weak.
+        /// </summary>
+        internal static string PasswordStrengthWeak {
+            get {
+                return ResourceManager.GetString("PasswordStrengthWeak", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Fair.
+        /// </summary>
+        internal static string PasswordStrengthFair {
+            get {
+                return ResourceManager.GetString("PasswordStrengthFair", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Good.
+        /// </summary>
+        internal static string PasswordStrengthGood {
+            get {
+                return ResourceManager.GetString("PasswordStrengthGood", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Strong.
+        /// </summary>
+        internal static string PasswordStrengthStrong {
+            get {
+                return ResourceManager.GetString("PasswordStrengthStrong", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Not estimated (over 256 characters).
+        /// </summary>
+        internal static string PasswordStrengthNotEstimated {
+            get {
+                return ResourceManager.GetString("PasswordStrengthNotEstimated", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to estimate.
+        /// </summary>
+        internal static string PasswordStrengthUnavailable {
+            get {
+                return ResourceManager.GetString("PasswordStrengthUnavailable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Verify table structure.
+        /// </summary>
+        internal static string VerifyTableStructure {
+            get {
+                return ResourceManager.GetString("VerifyTableStructure", resourceCulture);
             }
         }
         

@@ -5,6 +5,7 @@ using System.Xml.Linq;
 using mRemoteNG.App;
 using mRemoteNG.Connection;
 using mRemoteNG.Container;
+using mRemoteNG.Plugins;
 using mRemoteNG.Security;
 
 namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
@@ -35,7 +36,7 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             element.Add(new XAttribute("Name", connectionInfo.Name));
             element.Add(new XAttribute("VmId", connectionInfo.VmId));
             element.Add(new XAttribute("UseVmId", connectionInfo.UseVmId));
-            element.Add(new XAttribute("UseEnhancedMode", connectionInfo.UseVmId));
+            element.Add(new XAttribute("UseEnhancedMode", connectionInfo.UseEnhancedMode));
             element.Add(new XAttribute("Type", connectionInfo.GetTreeNodeType().ToString()));
             if (nodeAsContainer != null)
                 element.Add(new XAttribute("Expanded", nodeAsContainer.IsExpanded.ToString().ToLowerInvariant()));
@@ -150,6 +151,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             element.Add(new XAttribute("EC2Region", connectionInfo.EC2Region));
             element.Add(new XAttribute("ExternalCredentialProvider", connectionInfo.ExternalCredentialProvider));
             element.Add(new XAttribute("ExternalAddressProvider", connectionInfo.ExternalAddressProvider));
+
+            string serializedPluginData = PluginConnectionDataSerializer.Serialize(connectionInfo.PluginProperties);
+            if (!string.IsNullOrEmpty(serializedPluginData))
+                element.Add(new XElement("PluginData", serializedPluginData));
         }
 
         private void SetInheritanceAttributes(XContainer element, IInheritable connectionInfo)

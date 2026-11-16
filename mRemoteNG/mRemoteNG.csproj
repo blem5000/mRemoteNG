@@ -3,13 +3,20 @@
   <PropertyGroup>
     <Platforms>x64;arm64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <NoWarn>$(NoWarn);NU1701;CA1416;CS0067;CS0414;CS0618;CS8597;CS8600;CS8601;CS8602;CS8603;CS8604;CS8605;CS8618;CS8622;CS8625;CS8632;CS8764;CS8765;CS8767;CS8777;SYSLIB0060</NoWarn>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows10.0.26100.0</TargetFramework>
-    <!-- Allow the framework-dependent build to run on machines that only have a newer .NET runtime installed -->
+    <TargetFramework>net11.0-windows10.0.26100.0</TargetFramework>
+    <!-- Fork: allow the framework-dependent build to run on a newer .NET runtime -->
     <RollForward>LatestMajor</RollForward>
+    <!-- Fork: disable CET compatibility check in .NET AppHost -->
+    <CETCompat>false</CETCompat>
     <UseWindowsForms>true</UseWindowsForms>
+    <TransformOnBuild>true</TransformOnBuild>
+    <TransformOutOfDateOnly>false</TransformOutOfDateOnly>
+    <OverwriteReadOnlyOutputFiles>true</OverwriteReadOnlyOutputFiles>
     <ApplicationIcon>Icons\mRemoteNG.ico</ApplicationIcon>
     <Version>1.78.2-dev</Version>
     <Description>Multi-protocol remote connections manager</Description>
@@ -17,13 +24,13 @@
     <PackageLicenseFile>COPYING.TXT</PackageLicenseFile>
     <PackageProjectUrl>https://mremoteng.org/</PackageProjectUrl>
     <Platforms>x64;arm64</Platforms>
-    <Configurations>Debug;Release;Debug Portable;Release Portable;Release Installer;Deploy to github</Configurations>
+    <Configurations>Debug;Release;Release Self-Contained;Deploy to github</Configurations>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>latest</LangVersion>
     <PackageIcon>Header_dark.png</PackageIcon>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <UseWPF>True</UseWPF>
-    <SupportedOSPlatformVersion>10.0.26100.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <SignAssembly>False</SignAssembly>
     <Title>Multi-Remote Next Generation Connection Manager</Title>
     <RepositoryUrl>https://github.com/mRemoteNG/mRemoteNG.git</RepositoryUrl>
@@ -71,55 +78,40 @@
     <WarningLevel>8</WarningLevel>
     <ResolveComReferenceSilent>True</ResolveComReferenceSilent>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Portable|x64'">
-    <DefineConstants>DEBUG;PORTABLE</DefineConstants>
-    <Optimize>False</Optimize>
-    <OutputPath>bin\x64\Debug Portable\</OutputPath>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
-    <WarningLevel>8</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Portable|arm64'">
-    <DefineConstants>DEBUG;PORTABLE</DefineConstants>
-    <Optimize>False</Optimize>
-    <OutputPath>bin\arm64\Debug Portable\</OutputPath>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
-    <WarningLevel>8</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Portable|x64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Self-Contained|x64'">
     <DefineConstants>PORTABLE</DefineConstants>
     <Optimize>True</Optimize>
-    <OutputPath>bin\x64\Release Portable\</OutputPath>
+    <PublishDir>bin\x64\Publish Self-Contained\</PublishDir>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
     <WarningLevel>8</WarningLevel>
     <ResolveComReferenceSilent>True</ResolveComReferenceSilent>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <CopyBuildOutputToPublishDirectory>true</CopyBuildOutputToPublishDirectory>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <RunCommand></RunCommand>
+    <RunArguments></RunArguments>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Portable|arm64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Self-Contained|arm64'">
     <DefineConstants>PORTABLE</DefineConstants>
     <Optimize>True</Optimize>
-    <OutputPath>bin\arm64\Release Portable\</OutputPath>
+    <OutputPath>bin\arm64\Release Self-Contained\</OutputPath>
+    <PublishDir>bin\arm64\Publish Self-Contained\</PublishDir>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
     <WarningLevel>8</WarningLevel>
     <ResolveComReferenceSilent>True</ResolveComReferenceSilent>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Installer|x64'">
-    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
-    <Optimize>True</Optimize>
-    <WarningLevel>8</WarningLevel>
-    <ResolveComReferenceSilent>True</ResolveComReferenceSilent>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Installer|arm64'">
-    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
-    <Optimize>True</Optimize>
-    <WarningLevel>8</WarningLevel>
-    <ResolveComReferenceSilent>True</ResolveComReferenceSilent>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <CopyBuildOutputToPublishDirectory>true</CopyBuildOutputToPublishDirectory>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <RunCommand></RunCommand>
+    <RunArguments></RunArguments>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="buildenv.tmp" />
@@ -136,76 +128,35 @@
       <EmbedInteropTypes>false</EmbedInteropTypes>
     </COMReference>
   </ItemGroup>
-  <ItemGroup>
+   <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" />
-    <PackageReference Include="Castle.Core" />
     <PackageReference Include="ConsoleControl" />
-    <PackageReference Include="Cucumber.Messages" />
     <PackageReference Include="DockPanelSuite" />
     <PackageReference Include="DockPanelSuite.ThemeVS2015" />
     <PackageReference Include="Google.Protobuf" />
-    <PackageReference Include="LiteDB" />
     <PackageReference Include="log4net" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="Microsoft.Bcl.Cryptography" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
-    <PackageReference Include="Microsoft.NETCore.Platforms" />
-    <PackageReference Include="Microsoft.NETCore.Targets" />
-    <PackageReference Include="Microsoft.VisualStudio.TextTemplating.VSHost" />
     <PackageReference Include="Microsoft.Web.WebView2" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" />
     <PackageReference Include="MySql.Data" />
-    <PackageReference Include="NETStandard.Library" />
+    <PackageReference Include="OpenTelemetry.PersistentStorage.FileSystem" />
+    <PackageReference Include="SQLite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
+    <PackageReference Include="SQLitePCLRaw.provider.e_sqlite3" />
+    <PackageReference Include="System.Data.Odbc" />
     <PackageReference Include="Newtonsoft.Json" />
-    <PackageReference Include="Newtonsoft.Json.Schema" />
-    <PackageReference Include="OpenCover" />
-    <PackageReference Include="Renci.SshNet.Async" />
-    <PackageReference Include="ReportGenerator" />
-    <PackageReference Include="runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="runtime.fedora.24-x64.runtime.native.System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="runtime.native.System" />
-    <PackageReference Include="runtime.native.System.IO.Compression" />
-    <PackageReference Include="runtime.native.System.Net.Http" />
-    <PackageReference Include="runtime.native.System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="runtime.opensuse.42.1-x64.runtime.native.System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="runtime.ubuntu.14.04-x64.runtime.native.System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="runtime.ubuntu.16.10-x64.runtime.native.System.Security.Cryptography.OpenSsl" />
     <PackageReference Include="SSH.NET" />
-    <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" />
-    <PackageReference Include="System.Console" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" />
-    <PackageReference Include="System.Diagnostics.EventLog" />
-    <PackageReference Include="System.DirectoryServices" />
-    <PackageReference Include="System.Drawing.Common" />
-    <PackageReference Include="System.Formats.Asn1" />
-    <PackageReference Include="System.IO.Pipelines" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="System.Management" />
-    <PackageReference Include="System.Net.Primitives" />
-    <PackageReference Include="System.Net.Sockets" />
-    <PackageReference Include="System.Reflection.Emit" />
-    <PackageReference Include="System.Reflection.Emit.ILGeneration" />
-    <PackageReference Include="System.Reflection.Emit.Lightweight" />
-    <PackageReference Include="System.Reflection.Metadata" />
-    <PackageReference Include="System.Resources.ResourceManager" />
-    <PackageReference Include="System.Runtime.Extensions" />
-    <PackageReference Include="System.Security.AccessControl" />
-    <PackageReference Include="System.Security.Cryptography.Algorithms" />
-    <PackageReference Include="System.Security.Cryptography.Cng" />
-    <PackageReference Include="System.Security.Cryptography.OpenSsl" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
-    <PackageReference Include="System.Security.Cryptography.X509Certificates" />
-    <PackageReference Include="System.Security.Permissions" />
-    <PackageReference Include="System.Security.Principal.Windows" />
-    <PackageReference Include="System.Text.Encoding.CodePages" />
-    <PackageReference Include="System.Text.Json" />
-    <PackageReference Include="System.Text.RegularExpressions" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" />
-    <PackageReference Include="System.Windows.Extensions" />
-    <PackageReference Include="System.Xml.ReaderWriter" />
+    <PackageReference Include="System.Threading.RateLimiting" />
     <PackageReference Include="VncSharpCore" />
-    <PackageReference Include="ZstdSharp.Port" />
+    <PackageReference Include="zxcvbn-core" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Language\Language.Designer.cs">
@@ -311,6 +262,9 @@
     <Compile Update="UI\Forms\OptionsPages\CredentialsPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Update="UI\Forms\OptionsPages\PluginsPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Update="UI\Forms\OptionsPages\NotificationsPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -335,6 +289,11 @@
     <Compile Update="UI\Forms\OptionsPages\UpdatesPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <T4ParameterValues Include="platformType">
+      <Value>$(Platform)</Value>
+    </T4ParameterValues>
   </ItemGroup>
   <ItemGroup>
     <None Update="Properties\AssemblyInfo.tt">
@@ -584,6 +543,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ExternalConnectors\ExternalConnectors.csproj" />
+    <ProjectReference Include="..\mRemoteNG.PluginContracts\mRemoteNG.PluginContracts.csproj" />
     <ProjectReference Include="..\ObjectListView\ObjectListView.NetCore.csproj" />
   </ItemGroup>
   <ItemGroup>
@@ -603,17 +563,16 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Update="chromiumembeddedframework.runtime.win-x64" Version="140.1.14" />
+    <PackageReference Update="chromiumembeddedframework.runtime.win-x64" Version="156.0.15" />
   </ItemGroup>
   <ItemGroup Condition="'$(Platform)'=='arm64'">
-    <PackageReference Update="chromiumembeddedframework.runtime.win-arm64" Version="140.1.14" />
+    <PackageReference Update="chromiumembeddedframework.runtime.win-arm64" Version="156.0.15" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Platform)'=='x64'">
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Deploy to github|x64'">
@@ -621,7 +580,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='arm64'">
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <Nullable>enable</Nullable>
     <PlatformTarget>ARM64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Deploy to github|ARM64'">
@@ -629,19 +587,145 @@
   </PropertyGroup>
   <Target Name="CopyPackageAssembliesToSubFolder" AfterTargets="ResolveReferences">
     <ItemGroup>
-      <ReferenceCopyLocalPaths Condition=" '%(ReferenceCopyLocalPaths.NuGetPackageId)' != '' " Update="%(ReferenceCopyLocalPaths)" DestinationSubDirectory="Assemblies\" />
+      <ReferenceCopyLocalPaths Condition=" '%(ReferenceCopyLocalPaths.NuGetPackageId)' != '' and '%(ReferenceCopyLocalPaths.Filename)' != 'e_sqlite3' and '%(ReferenceCopyLocalPaths.Filename)' != 'libe_sqlite3' and !$([System.String]::Copy('%(ReferenceCopyLocalPaths.FullPath)').Contains('\runtimes\')) " Update="%(ReferenceCopyLocalPaths)" DestinationSubDirectory="Assemblies\" />
+      <ReferenceCopyLocalPaths Condition=" '%(ReferenceCopyLocalPaths.Filename)' == 'mRp.Contracts' " Update="%(ReferenceCopyLocalPaths)" DestinationSubDirectory="Assemblies\" />
+    </ItemGroup>
+  </Target>
+  <!--
+    The AfterTargets="ResolveReferences" rewrite above only reroutes ReferenceCopyLocalPaths
+    for the build output. During publish (self-contained in particular) files flow through
+    ResolvedFileToPublish, whose RelativePath metadata is what decides the layout under
+    $(PublishDir). Mirror the same rules on ResolvedFileToPublish so NuGet DLLs end up in
+    Assemblies\ and plugin assemblies (mRp.* other than mRp.Contracts) end up in Plugins\
+    in the self-contained publish, matching the framework-dependent build.
+  -->
+  <Target Name="RelocatePublishedPackageAssembliesToSubFolder" AfterTargets="ComputeResolvedFilesToPublishList" BeforeTargets="CopyFilesToPublishDirectory">
+    <ItemGroup>
+      <!-- Reroute top-level third-party managed NuGet DLLs into Assemblies\. Native runtime
+           assets stay at the publish root, as required by self-contained publishing. Items whose RelativePath
+           already contains a path separator (e.g. runtimes\..., culture satellite folders)
+           are left untouched so the SQL Client SNI layout and satellite assemblies remain
+           intact. The .NET shared-framework / runtime packs (Microsoft.NETCore.App.*,
+           Microsoft.WindowsDesktop.App.*, Microsoft.AspNetCore.App.*) must stay next to the
+           apphost in a self-contained publish so coreclr.dll / hostfxr.dll resolve, so they
+           are excluded from the move. -->
+      <ResolvedFileToPublish Condition=" '%(ResolvedFileToPublish.NuGetPackageId)' != '' and '%(ResolvedFileToPublish.Extension)' == '.dll' and '%(ResolvedFileToPublish.AssetType)' != 'native' and '%(ResolvedFileToPublish.Filename)' != 'e_sqlite3' and '%(ResolvedFileToPublish.Filename)' != 'libe_sqlite3' and !$([System.String]::Copy('%(ResolvedFileToPublish.NuGetPackageId)').StartsWith('Microsoft.NETCore.App')) and !$([System.String]::Copy('%(ResolvedFileToPublish.NuGetPackageId)').StartsWith('Microsoft.WindowsDesktop.App')) and !$([System.String]::Copy('%(ResolvedFileToPublish.NuGetPackageId)').StartsWith('Microsoft.AspNetCore.App')) and !$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').Contains('\')) and !$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').Contains('/')) " Update="%(ResolvedFileToPublish.Identity)" RelativePath="Assemblies\%(ResolvedFileToPublish.RelativePath)" />
+      <ResolvedFileToPublish Condition=" '%(ResolvedFileToPublish.Filename)' == 'mRp.Contracts' and '%(ResolvedFileToPublish.Extension)' == '.dll' " Update="%(ResolvedFileToPublish.Identity)" RelativePath="Assemblies\%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)" />
+      <ResolvedFileToPublish Condition=" $([System.String]::Copy('%(ResolvedFileToPublish.Filename)').StartsWith('mRp.')) and '%(ResolvedFileToPublish.Filename)' != 'mRp.Contracts' and '%(ResolvedFileToPublish.Extension)' == '.dll' " Update="%(ResolvedFileToPublish.Identity)" RelativePath="Plugins\%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)" />
     </ItemGroup>
   </Target>
   <PropertyGroup>
     <!-- Disable CET compatibility check in .NET 9 AppHost -->
     <CETCompat>false</CETCompat>
   </PropertyGroup>
+  <ItemGroup>
+    <AppSatelliteResourceAssemblies Include="Language\Language.cs-CZ.resx">
+      <Culture>cs-CZ</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.de.resx">
+      <Culture>de</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.el.resx">
+      <Culture>el</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.es.resx">
+      <Culture>es</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.es-AR.resx">
+      <Culture>es-AR</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.fi-FI.resx">
+      <Culture>fi-FI</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.fr.resx">
+      <Culture>fr</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.hu.resx">
+      <Culture>hu</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.it.resx">
+      <Culture>it</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.ja-JP.resx">
+      <Culture>ja-JP</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.ko-KR.resx">
+      <Culture>ko-KR</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.lt.resx">
+      <Culture>lt</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.nb-NO.resx">
+      <Culture>nb-NO</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.nl.resx">
+      <Culture>nl</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.pl.resx">
+      <Culture>pl</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.pt.resx">
+      <Culture>pt</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.pt-BR.resx">
+      <Culture>pt-BR</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.ru.resx">
+      <Culture>ru</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.sv-SE.resx">
+      <Culture>sv-SE</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.ta.resx">
+      <Culture>ta</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.tr-TR.resx">
+      <Culture>tr-TR</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.uk.resx">
+      <Culture>uk</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.zh-CN.resx">
+      <Culture>zh-CN</Culture>
+    </AppSatelliteResourceAssemblies>
+    <AppSatelliteResourceAssemblies Include="Language\Language.zh-TW.resx">
+      <Culture>zh-TW</Culture>
+    </AppSatelliteResourceAssemblies>
+  </ItemGroup>
+  <Target Name="RelocateBuiltSatelliteAssembliesToLanguagesFolder" AfterTargets="Build">
+    <ItemGroup>
+      <BuiltSatelliteResourceAssemblies Include="@(AppSatelliteResourceAssemblies->'$(OutDir)%(Culture)\mRemoteNG.resources.dll')" />
+      <BuiltSatelliteCultureDirectories Include="@(AppSatelliteResourceAssemblies->'$(OutDir)%(Culture)')" />
+    </ItemGroup>
 
+    <Copy SourceFiles="@(BuiltSatelliteResourceAssemblies)" DestinationFiles="@(AppSatelliteResourceAssemblies->'$(OutDir)Languages\%(Culture)\mRemoteNG.resources.dll')" SkipUnchangedFiles="true" />
+    <Delete Files="@(BuiltSatelliteResourceAssemblies)" />
+    <RemoveDir Directories="@(BuiltSatelliteCultureDirectories)" />
+  </Target>
+  <Target Name="RelocatePublishedSatelliteAssembliesToLanguagesFolder" AfterTargets="Publish">
+    <ItemGroup>
+      <PublishedSatelliteResourceAssemblies Include="@(AppSatelliteResourceAssemblies->'$(PublishDir)%(Culture)\mRemoteNG.resources.dll')" />
+      <PublishedSatelliteCultureDirectories Include="@(AppSatelliteResourceAssemblies->'$(PublishDir)%(Culture)')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(PublishedSatelliteResourceAssemblies)" DestinationFiles="@(AppSatelliteResourceAssemblies->'$(PublishDir)Languages\%(Culture)\mRemoteNG.resources.dll')" SkipUnchangedFiles="true" />
+    <Delete Files="@(PublishedSatelliteResourceAssemblies)" />
+    <RemoveDir Directories="@(PublishedSatelliteCultureDirectories)" />
+  </Target>
+  <Target Name="PublishAfterBuild" AfterTargets="Build" Condition="'$(Configuration)' == 'Release Self-Contained'">
+    <Message Text="Publishing self-contained application for $(Platform)..." Importance="high" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);NoBuild=true;NoRestore=true" />
+    <PropertyGroup>
+      <TempBuildDir>$([System.IO.Path]::GetFullPath('$(OutputPath)'))</TempBuildDir>
+    </PropertyGroup>
+    <Message Text="Cleaning up temporary build directory: $(TempBuildDir)" Importance="high" />
+    <RemoveDir Directories="$(TempBuildDir)" />
+    <RemoveDir Directories="$(ProjectDir)bin\x64\Release Self-Contained" />
+  </Target>
   <!--
-    Record which git commit produced this build, so two downloads with the same version
+    Fork: record which git commit produced this build, so two downloads with the same version
     ("1.78.2") can still be told apart in the About box and in bug reports.
     The value lands in AssemblyMetadata("Commit", "<sha>") inside obj\, never in the source tree.
-    GIT_COMMIT can be passed in (MSBuild -p:GIT_COMMIT=<sha>); otherwise git is asked.
   -->
   <Target Name="ResolveGitCommit" BeforeTargets="BeforeCompile" Condition="'$(GIT_COMMIT)' == ''">
     <Exec Command="git rev-parse HEAD"
@@ -667,10 +751,11 @@
     <ItemGroup>
       <Compile Include="$(GitInfoFile)" />
     </ItemGroup>
-    <Message Importance="normal" Text="Git commit for this build: $(GIT_COMMIT)" />
   </Target>
 
   <Target Name="IncludeGitInfoInClean" AfterTargets="Clean">
     <Delete Files="$(IntermediateOutputPath)GitInfo.cs" />
   </Target>
+
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v18.0\TextTemplating\Microsoft.TextTemplating.targets" Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v18.0\TextTemplating\Microsoft.TextTemplating.targets')" />
 </Project>

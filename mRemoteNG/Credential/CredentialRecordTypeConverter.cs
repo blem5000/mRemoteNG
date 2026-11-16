@@ -18,9 +18,7 @@ namespace mRemoteNG.Credential
 
         public override bool CanConvertTo(ITypeDescriptorContext? context, Type? destinationType)
         {
-            return destinationType == typeof(Guid)
-                   || destinationType == typeof(ICredentialRecord)
-                   || base.CanConvertTo(context, destinationType);
+            return destinationType == typeof(Guid) || destinationType == typeof(ICredentialRecord) || base.CanConvertTo(context, destinationType);
         }
 
         public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
@@ -32,7 +30,7 @@ namespace mRemoteNG.Credential
             return base.ConvertTo(context, culture, value, destinationType);
         }
 
-        public override object ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+        public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
         {
             if (!(value is Guid)) return base.ConvertFrom(context, culture, value);
             ICredentialRecord[] matchedCredentials = Runtime.CredentialProviderCatalog.GetCredentialRecords()

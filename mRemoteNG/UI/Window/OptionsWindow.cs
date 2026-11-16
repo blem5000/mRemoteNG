@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Runtime.Versioning;
 using System.Windows.Forms;
+using mRemoteNG.App;
 using mRemoteNG.Themes;
 using mRemoteNG.UI.Forms;
 using WeifenLuo.WinFormsUI.Docking;
@@ -13,6 +14,7 @@ namespace mRemoteNG.UI.Window
     {
         private FrmOptions _optionsForm;
         private bool _isInitialized = false;
+        private bool _isFontOverrideApplied = false;
 
         #region Public Methods
 
@@ -26,7 +28,7 @@ namespace mRemoteNG.UI.Window
             DockPnl = panel;
             InitializeComponent();
             Icon = Resources.ImageConverter.GetImageAsIcon(Properties.Resources.Settings_16x);
-            FontOverrider.FontOverride(this);
+            DoubleBuffered = true;
         }
 
         #endregion
@@ -35,16 +37,34 @@ namespace mRemoteNG.UI.Window
 
         private void Options_Load(object sender, EventArgs e)
         {
-            // Only subscribe to ThemeChanged once to prevent multiple subscriptions
-            if (!_isInitialized)
-            {
-                ThemeManager.getInstance().ThemeChanged += ApplyTheme;
-                _isInitialized = true;
-            }
-            
+            // On reopen of a previously initialized window, nothing to do —
+            // FrmOptions is a child control and auto-shows with its parent
+            if (_isInitialized && _optionsForm != null && !_optionsForm.IsDisposed)
+                return;
+
+            // First-time initialization
+            ThemeManager.getInstance().ThemeChanged += ApplyTheme;
+
             ApplyTheme();
             ApplyLanguage();
             LoadOptionsForm();
+
+            _isInitialized = true;
+        }
+
+        private void Options_Shown(object sender, EventArgs e)
+        {
+            if (_isFontOverrideApplied)
+                return;
+
+            BeginInvoke((MethodInvoker)(() =>
+            {
+                if (IsDisposed || _isFontOverrideApplied)
+                    return;
+
+                FontOverrider.FontOverride(this);
+                _isFontOverrideApplied = true;
+            }));
         }
 
         private new void ApplyTheme()
@@ -59,50 +79,124 @@ namespace mRemoteNG.UI.Window
             TabText = Language.Options;
         }
 
+        internal void RefreshUiLanguage()
+        {
+            ApplyLanguage();
+            _optionsForm?.RefreshUiLanguage();
+        }
+
         private void LoadOptionsForm()
         {
-            if (_optionsForm == null || _optionsForm.IsDisposed)
+            // Check if FrmMain.OptionsForm is disposed (source of truth)
+            if (FrmMain.OptionsForm != null && FrmMain.OptionsForm.IsDisposed)
+                FrmMain.RecreateOptionsForm();
+
+            // If the local reference is disposed, clean up
+            if (_optionsForm != null && _optionsForm.IsDisposed)
+            {
+                if (Controls.Contains(_optionsForm))
+                    Controls.Remove(_optionsForm);
+                _optionsForm.CloseRequested -= OnOptionsFormCloseRequested;
+                _optionsForm = null;
+            }
+
+            // Get fresh reference if needed
+            if (_optionsForm == null)
             {
                 _optionsForm = FrmMain.OptionsForm;
+
+                if (_optionsForm == null || _optionsForm.IsDisposed)
+                    return;
+
                 _optionsForm.TopLevel = false;
                 _optionsForm.FormBorderStyle = FormBorderStyle.None;
                 _optionsForm.Dock = DockStyle.Fill;
-                _optionsForm.CloseRequested -= OptionsForm_CloseRequested;
-                _optionsForm.CloseRequested += OptionsForm_CloseRequested;
+                _optionsForm.CloseRequested -= OnOptionsFormCloseRequested;
+                _optionsForm.CloseRequested += OnOptionsFormCloseRequested;
                 Controls.Add(_optionsForm);
+
+                // FrmOptions is created and its pages loaded while the main window
+                // starts, so settings changed after that (e.g. at a startup prompt)
+                // would show stale on the first open.
+                _optionsForm.ReloadAllSettings();
             }
-            _optionsForm.Show();
+
+            if (!_optionsForm.Visible)
+                _optionsForm.Show();
         }
 
-        private void OptionsForm_CloseRequested(object sender, EventArgs e)
+        /// <summary>
+        /// Handles OK/Cancel from embedded FrmOptions.
+        /// Calls DockHandler.Hide() directly - much faster than Close() because
+        /// it skips the entire FormClosing event chain.
+        /// </summary>
+        private void OnOptionsFormCloseRequested(object sender, EventArgs e)
         {
-            // The embedded options form asks its host to close the window on OK/Cancel
-            Close();
+            DockHandler.Hide();
         }
 
+        // Fork: detach from the session-wide event when this window is disposed.
         protected override void Dispose(bool disposing)
         {
             if (disposing && _optionsForm != null)
-                _optionsForm.CloseRequested -= OptionsForm_CloseRequested;
+                _optionsForm.CloseRequested -= OnOptionsFormCloseRequested;
 
             base.Dispose(disposing);
         }
 
+        /// <summary>
+        /// Reloads all option-page controls from the stored (on-disk) settings.
+        /// Call this before making the panel visible so that any stale edits from a
+        /// previous session (e.g. after a Tab-X hide) are discarded.
+        /// Safe to call before first initialization — no-op when _optionsForm is null.
+        /// </summary>
+        internal void RefreshSettings()
+        {
+            _optionsForm?.ReloadAllSettings();
+        }
+
+        /// <summary>
+        /// Handles the case where OptionsWindow is closed explicitly (e.g. from code
+        /// calling Close(), or DPS's CloseContent which fires FormClosing before hiding).
+        /// Checks for unsaved changes in the embedded FrmOptions.
+        /// </summary>
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // With HideOnClose = true, we don't dispose the window
-            // so we keep the embedded form in Controls for reuse
+            if (!ConfirmUnsavedChanges())
+            {
+                e.Cancel = true;
+                return;
+            }
+
             base.OnFormClosing(e);
         }
 
-        protected override void OnVisibleChanged(EventArgs e)
+        /// <summary>
+        /// Asks whether to save the options that were changed but not saved yet, and saves or
+        /// discards them. Also called when mRemoteNG exits, which does not close this window.
+        /// </summary>
+        /// <returns>false if the user chose Cancel.</returns>
+        internal bool ConfirmUnsavedChanges()
         {
-            base.OnVisibleChanged(e);
-            
-            // When the window becomes visible, ensure the embedded form is also shown
-            if (Visible && _optionsForm != null && !_optionsForm.Visible)
+            if (_optionsForm == null || _optionsForm.IsDisposed || !_optionsForm.HasUnsavedChanges())
+                return true;
+
+            DialogResult result = MessageBox.Show(
+                Language.SaveOptionsBeforeClosing,
+                Language.Options,
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+
+            switch (result)
             {
-                _optionsForm.Show();
+                case DialogResult.Yes:
+                    _optionsForm.SaveAllOptions();
+                    return true;
+                case DialogResult.No:
+                    _optionsForm.DiscardChanges();
+                    return true;
+                default:
+                    return false;
             }
         }
 
@@ -125,6 +219,7 @@ namespace mRemoteNG.UI.Window
             Text = Language.Options;
             TabText = Language.Options;
             Load += Options_Load;
+            Shown += Options_Shown;
             ResumeLayout(false);
         }
     }

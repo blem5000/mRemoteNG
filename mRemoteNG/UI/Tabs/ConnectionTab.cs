@@ -7,6 +7,8 @@ using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Connection.Protocol.VNC;
 using mRemoteNG.Properties;
+using mRemoteNG.UI.Forms;
+using mRemoteNG.UI.Window;
 using mRemoteNG.UI.TaskDialog;
 using WeifenLuo.WinFormsUI.Docking;
 using mRemoteNG.Resources.Language;
@@ -17,6 +19,8 @@ namespace mRemoteNG.UI.Tabs
     [SupportedOSPlatform("windows")]
     public partial class ConnectionTab : DockContent
     {
+        private DockAreas? _dockAreasBeforeMinimize;
+
         /// <summary>
         ///Silent close ignores the popup asking for confirmation
         /// </summary>
@@ -31,6 +35,89 @@ namespace mRemoteNG.UI.Tabs
         {
             InitializeComponent();
             GotFocus += ConnectionTab_GotFocus;
+            DockStateChanged += ConnectionTab_DockStateChanged;
+        }
+
+        internal bool CanMinimizeToBottomAutoHide()
+        {
+            return DockPanel != null &&
+                   !IsDisposed &&
+                   !Disposing &&
+                   DockState == DockState.Document;
+        }
+
+        internal void MinimizeToBottomAutoHide()
+        {
+            DockPanel dockPanel = DockPanel;
+            if (!CanMinimizeToBottomAutoHide() || dockPanel == null)
+                return;
+
+            if ((DockAreas & DockAreas.DockBottom) != DockAreas.DockBottom)
+            {
+                _dockAreasBeforeMinimize ??= DockAreas;
+                DockAreas |= DockAreas.DockBottom;
+            }
+
+            Show(dockPanel, DockState.DockBottomAutoHide);
+        }
+
+        private void ConnectionTab_DockStateChanged(object? sender, EventArgs e)
+        {
+            if (_dockAreasBeforeMinimize == null || DockState != DockState.Document)
+            {
+                return;
+            }
+
+            RestoreDockAreasAfterMinimize();
+        }
+
+        private void RestoreDockAreasAfterMinimize()
+        {
+            if (_dockAreasBeforeMinimize == null)
+            {
+                return;
+            }
+
+            // Assigning DockAreas throws if the new value does not allow the current
+            // DockState (e.g. restoring areas without DockBottom while still auto-hidden
+            // at the bottom). Defer the restore until the state is compatible again.
+            if (!DockAreasAllowState(_dockAreasBeforeMinimize.Value, DockState))
+            {
+                return;
+            }
+
+            try
+            {
+                DockAreas = _dockAreasBeforeMinimize.Value;
+            }
+            catch (InvalidOperationException ex)
+            {
+                // The docking library re-validates the value against the live DockState and
+                // can still reject it if the state changed between the check above and the
+                // assignment. Swallowing keeps tab close/restore from surfacing an unhandled
+                // exception; the original DockAreas simply remain in effect.
+                Runtime.MessageCollector?.AddExceptionMessage(
+                    "RestoreDockAreasAfterMinimize (UI.Tabs.ConnectionTab) failed to restore DockAreas",
+                    ex);
+            }
+            finally
+            {
+                _dockAreasBeforeMinimize = null;
+            }
+        }
+
+        private static bool DockAreasAllowState(DockAreas dockAreas, DockState dockState)
+        {
+            return dockState switch
+            {
+                DockState.Float => (dockAreas & DockAreas.Float) == DockAreas.Float,
+                DockState.DockLeft or DockState.DockLeftAutoHide => (dockAreas & DockAreas.DockLeft) == DockAreas.DockLeft,
+                DockState.DockRight or DockState.DockRightAutoHide => (dockAreas & DockAreas.DockRight) == DockAreas.DockRight,
+                DockState.DockTop or DockState.DockTopAutoHide => (dockAreas & DockAreas.DockTop) == DockAreas.DockTop,
+                DockState.DockBottom or DockState.DockBottomAutoHide => (dockAreas & DockAreas.DockBottom) == DockAreas.DockBottom,
+                DockState.Document => (dockAreas & DockAreas.Document) == DockAreas.Document,
+                _ => true,
+            };
         }
 
         private void ConnectionTab_GotFocus(object sender, EventArgs e)
@@ -40,12 +127,6 @@ namespace mRemoteNG.UI.Tabs
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // Answering "No" to the confirmation must leave everything exactly as it was,
-            // including which tab is active. Showing the modal dialog deactivates this tab and
-            // the dock panel then activates another document (typically the tab of the other
-            // panel), so the user's tab lost the focus even though the close was cancelled.
-            bool wasActiveDocument = IsActiveDocument();
-
             if (!protocolClose)
             {
                 if (!silentClose)
@@ -88,61 +169,34 @@ namespace mRemoteNG.UI.Tabs
 
             base.OnFormClosing(e);
 
-            if (e.Cancel && wasActiveDocument)
-                RestoreAsActiveDocument();
-        }
-
-        /// <summary>
-        /// True when this tab is the one currently shown in its panel.
-        /// </summary>
-        private bool IsActiveDocument()
-        {
-            try
+            if (!e.Cancel && DockState == DockState.DockBottomAutoHide)
             {
-                return DockHandler != null && DockHandler.IsActivated;
+                RestoreDockAreasAfterMinimize();
             }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
 
-        /// <summary>
-        /// Brings the focus back to this tab after a cancelled close.
-        ///
-        /// Done after the close sequence finished (BeginInvoke), because the dock panel picks the
-        /// next active document while the modal dialog is up and would overwrite an activation
-        /// performed earlier.
-        /// </summary>
-        private void RestoreAsActiveDocument()
-        {
-            if (!IsHandleCreated || IsDisposed || Disposing) return;
+            if (e.Cancel || FrmMain.Default == null || FrmMain.Default.IsClosing)
+                return;
 
-            try
-            {
-                BeginInvoke(new Action(() =>
-                {
-                    if (IsDisposed || Disposing || !IsHandleCreated) return;
-                    if (DockHandler == null || DockHandler.DockPanel == null) return;
+            ConnectionWindow parentWindow = FindForm() as ConnectionWindow;
+            if (parentWindow == null || parentWindow.IsGeneralPanel)
+                return;
 
-                    DockHandler.Activate();
-                }));
-            }
-            catch (Exception ex)
-            {
-                Runtime.MessageCollector.AddExceptionMessage(
-                    "ConnectionTab.RestoreAsActiveDocument() failed", ex);
-            }
+            IDockContent[] remainingDocuments = DockPanel?.DocumentsToArray() ?? [];
+            if (remainingDocuments.Length > 1)
+                return;
+
+            FrmMain.Default?.ShowHidePanelTabs(this);
+            parentWindow.Close();
         }
 
 
-        #region HelperFunctions  
+        #region HelperFunctions
 
         /// <summary>
-        /// Closes the protocol attached to this tab, if there is one.
-        /// While a connection is still being established the tag holds the
-        /// <see cref="ConnectionInfo"/> instead of an <see cref="InterfaceControl"/>,
-        /// so closing such a tab must not blow up on the cast.
+        /// Closes the protocol attached to this tab, if one is. <see cref="ConnectionWindow.AddConnectionTab"/>
+        /// stores the <see cref="ConnectionInfo"/> in <see cref="Control.Tag"/>; the protocol replaces it with
+        /// its <see cref="InterfaceControl"/> when it initializes and clears it when it closes. A tab closed
+        /// before the protocol attached has nothing to close.
         /// </summary>
         private void CloseAttachedProtocol()
         {
