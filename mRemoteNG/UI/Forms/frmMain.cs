@@ -950,7 +950,11 @@ namespace mRemoteNG.UI.Forms
 
             if (pnlDock.DocumentStyle == newDocumentStyle) return;
             pnlDock.DocumentStyle = newDocumentStyle;
-            pnlDock.Size = new Size(1, 1);
+            // Force a relayout without shrinking the panel to 1x1. The old Size=1,1 hack
+            // exposed the light form background for a frame (a white flash on both monitors).
+            // DocumentStyle's own setter already suspends/resumes layout; PerformLayout here is
+            // enough and does not repaint the whole window on a light background.
+            pnlDock.PerformLayout();
         }
 
         public void SetDefaultLayout()

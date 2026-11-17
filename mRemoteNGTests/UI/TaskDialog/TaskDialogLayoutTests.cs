@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
 using mRemoteNG.Resources.Language;
+using mRemoteNG.Themes;
 using mRemoteNG.UI.TaskDialog;
 using NUnit.Framework;
 
@@ -46,6 +47,32 @@ namespace mRemoteNGTests.UI.TaskDialog
             Assert.That(checkbox.Height, Is.GreaterThan(0));
             Assert.That(checkbox.Width, Is.GreaterThanOrEqualTo(dialog.LogicalToDeviceUnits(300)),
                         "The checkbox must be wide enough for a long verification text");
+        });
+
+        [Test]
+        public void DialogItselfUsesThemedBackground_NoWhiteFlash() => RunOnStaThread(() =>
+        {
+            using frmTaskDialog dialog = new()
+            {
+                Title = "mRemoteNG Connection Manager",
+                MainInstruction = "Are you sure you want to close the panel?",
+                Buttons = ETaskDialogButtons.YesNo,
+                VerificationText = Language.CheckboxDoNotShowThisMessageAgain,
+                Width = 520
+            };
+            dialog.BuildForm();
+
+            ThemeManager themeManager = ThemeManager.getInstance();
+            if (!themeManager.ActiveAndExtended)
+                Assert.Ignore("No extended theme active in this environment");
+
+            Color expected = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            Assert.That(dialog.BackColor, Is.EqualTo(expected),
+                        "The dialog form itself must use the themed background, otherwise it flashes white");
+            var doubleBuffered = typeof(Control).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(doubleBuffered?.GetValue(dialog), Is.True,
+                        "Double buffering reduces painting flicker when the dialog appears");
         });
 
         private static Control FindControl(Control parent, string name)

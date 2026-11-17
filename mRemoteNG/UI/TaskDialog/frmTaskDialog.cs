@@ -125,6 +125,16 @@ namespace mRemoteNG.UI.TaskDialog
         public frmTaskDialog()
         {
             InitializeComponent();
+            DoubleBuffered = true;
+
+            // Set the themed background before the handle is created so the window never paints
+            // with the default light color (a white flash over the dark main window on close).
+            ThemeManager themeManager = ThemeManager.getInstance();
+            if (themeManager.ActiveAndExtended)
+            {
+                BackColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+                ForeColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
+            }
 
             // _isVista = VistaTaskDialog.IsAvailableOnThisOS;
             if (!_isVista && CTaskDialog.UseToolWindowOnXp) // <- shall we use the smaller toolbar?
@@ -434,6 +444,11 @@ namespace mRemoteNG.UI.TaskDialog
             themeManager.ApplyThemeToTitleBar(this);
             if (!themeManager.ActiveAndExtended) return;
 
+            // The form itself must match the theme as well: only the child panels were themed,
+            // so the gap around them stayed at the default light SystemColors.Control and
+            // produced a white flash when the dialog appeared over a dark main window.
+            BackColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
+            ForeColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
             pnlButtons.BackColor = themeManager.ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
             pnlButtons.ForeColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Foreground");
             panel2.BackColor = ThemeManager.getInstance().ActiveTheme.ExtendedPalette.getColor("Dialog_Background");
