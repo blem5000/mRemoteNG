@@ -35,7 +35,7 @@ namespace mRemoteNG.App
         /// <summary>
         /// Mode used when nothing is configured. Kept as upstream's value.
         /// </summary>
-        public static HighDpiMode DefaultMode => HighDpiMode.PerMonitorV2;
+        public static HighDpiMode DefaultMode => HighDpiMode.SystemAware;
 
         /// <summary>
         /// Human-readable names offered in the Options combo box.

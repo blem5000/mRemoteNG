@@ -24,7 +24,7 @@
       <Value Profile="(Default)">True</Value>
     </Setting>
     <Setting Name="DpiMode" Type="System.String" Scope="User">
-      <Value Profile="(Default)">PerMonitorV2</Value>
+      <Value Profile="(Default)">SystemAware</Value>
     </Setting>
   </Settings>
 </SettingsFile>

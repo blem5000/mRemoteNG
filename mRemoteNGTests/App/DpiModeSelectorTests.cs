@@ -37,8 +37,8 @@ namespace mRemoteNGTests.App
         {
             // Keep upstream's default until the right value is confirmed on the user's display
             // scaling; the mode can be overridden with MREMOTENG_DPI_MODE without a rebuild.
-            Assert.That(DpiModeSelector.DefaultMode, Is.EqualTo(HighDpiMode.PerMonitorV2));
-            Assert.That(DpiModeSelector.GetMode(null), Is.EqualTo(HighDpiMode.PerMonitorV2));
+            Assert.That(DpiModeSelector.DefaultMode, Is.EqualTo(HighDpiMode.SystemAware));
+            Assert.That(DpiModeSelector.GetMode(null), Is.EqualTo(HighDpiMode.SystemAware));
         }
 
         [Test]

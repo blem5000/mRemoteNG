@@ -200,7 +200,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             pnlOptions.Location = new System.Drawing.Point(0, 30);
             pnlOptions.Name = "pnlOptions";
             pnlOptions.Padding = new Padding(0, 0, 0, 8);
-            pnlOptions.Size = new System.Drawing.Size(610, 260);
+            pnlOptions.Size = new System.Drawing.Size(610, 340);
             pnlOptions.TabIndex = 8;
             // 
             // tableLayoutPanelAppearance
@@ -233,7 +233,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
             tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
             tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
-            tableLayoutPanelAppearance.Size = new System.Drawing.Size(610, 252);
+            tableLayoutPanelAppearance.Size = new System.Drawing.Size(610, 332);
             tableLayoutPanelAppearance.TabIndex = 0;
             // 
             // lblRegistrySettingsUsedInfo

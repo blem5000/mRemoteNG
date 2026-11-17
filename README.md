@@ -75,9 +75,9 @@ Sprawdzić można ręcznie: **Pomoc → Sprawdź aktualizacje**, albo automatycz
 Jeśli interfejs wydaje Ci się zbyt duży lub zbyt mały (menu, drzewo połączeń, ikony), zmień tryb w
 **Opcje → Wygląd → Interface scaling**. Dostępne wartości:
 
-- `DpiUnaware` — Windows skaluje okno jako bitmapę; daje najmniejszy interfejs (podobny do wersji .NET 9),
-- `SystemAware` — skalowanie raz przy starcie; interfejs większy,
-- `PerMonitorV2` — domyślna, skalowanie niezależnie dla każdego monitora; interfejs największy.
+- `DpiUnaware` — Windows skaluje okno jako bitmapę; daje najmniejszy interfejs,
+- `SystemAware` — **domyślny**, skalowanie raz przy starcie; daje wygląd z wersji .NET 9,
+- `PerMonitorV2` — skalowanie niezależnie dla każdego monitora; interfejs największy.
 
 Zmiana wymaga restartu programu. Tryb zapisywany jest razem z pozostałymi ustawieniami.
 Dla celów testowych można go nadpisać zmienną środowiskową `MREMOTENG_DPI_MODE` bez zmiany
