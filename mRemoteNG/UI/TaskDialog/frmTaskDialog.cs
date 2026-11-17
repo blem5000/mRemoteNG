@@ -216,14 +216,22 @@ namespace mRemoteNG.UI.TaskDialog
 
             bool showVerifyCheckbox = cbVerify.Text != "";
             cbVerify.Visible = showVerifyCheckbox;
+            if (showVerifyCheckbox)
+            {
+                // The checkbox needs its own row below the buttons. Placing it at the same
+                // vertical position as the buttons makes a long verification text run under
+                // the "Yes"/"No" buttons and get clipped.
+                cbVerify.Top = LogicalToDeviceUnits(34);
+                pnlButtons.Height = LogicalToDeviceUnits(62);
+            }
 
             // Setup Expanded Info and Buttons panels
             if (ExpandedInfo == "")
             {
                 pnlExpandedInfo.Visible = false;
                 lbShowHideDetails.Visible = false;
-                cbVerify.Top = LogicalToDeviceUnits(12);
-                pnlButtons.Height = LogicalToDeviceUnits(40);
+                if (!showVerifyCheckbox)
+                    pnlButtons.Height = LogicalToDeviceUnits(40);
             }
             else
             {

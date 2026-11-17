@@ -230,7 +230,8 @@ namespace mRemoteNG.UI.TaskDialog
             // 
             this.cbVerify._mice = MrngCheckBox.MouseState.HOVER;
             this.cbVerify.AutoSize = false;
-            this.cbVerify.Dock = System.Windows.Forms.DockStyle.Top;
+            this.cbVerify.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.cbVerify.Location = new System.Drawing.Point(13, 34);
             this.cbVerify.Name = "cbVerify";
             this.cbVerify.Size = new System.Drawing.Size(438, 24);
