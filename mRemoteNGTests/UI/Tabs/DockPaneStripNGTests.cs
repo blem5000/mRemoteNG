@@ -377,6 +377,41 @@ namespace mRemoteNGTests.UI.Tabs
         });
 
         [Test]
+        public void RestoringMinimizedTab_ReturnsItToOriginalPaneAndPosition() => RunWithMessagePump(() =>
+        {
+            (Form hostForm, DockPanel dockPanel) = ShowHostedDockPanel();
+            using (hostForm)
+            {
+                ConnectionTab a = CreateConnectionTab("A");
+                ConnectionTab b = CreateConnectionTab("B");
+                ConnectionTab c = CreateConnectionTab("C");
+                a.Show(dockPanel, DockState.Document);
+                b.Show(dockPanel, DockState.Document);
+                c.Show(dockPanel, DockState.Document);
+                Application.DoEvents();
+
+                DockPane originalPane = b.DockHandler.Pane;
+                int originalIndex = originalPane.DisplayingContents.IndexOf(b);
+                Assert.That(originalIndex, Is.EqualTo(1), "B should start between A and C");
+
+                b.MinimizeToBottomAutoHide();
+                Application.DoEvents();
+                Assert.That(b.DockState, Is.EqualTo(DockState.DockBottomAutoHide));
+
+                b.RestoreFromBottomAutoHide();
+                Application.DoEvents();
+
+                Assert.That(b.DockState, Is.EqualTo(DockState.Document));
+                Assert.That(ReferenceEquals(b.DockHandler.Pane, originalPane), Is.True,
+                            "The tab should return to the exact pane it was minimized from");
+                Assert.That(b.DockHandler.Pane.DisplayingContents.IndexOf(b), Is.EqualTo(originalIndex),
+                            "The tab should return to its original position between A and C");
+                Assert.That(b.DockHandler.Pane.DisplayingContents[0], Is.SameAs(a));
+                Assert.That(b.DockHandler.Pane.DisplayingContents[2], Is.SameAs(c));
+            }
+        });
+
+        [Test]
         public void RestoringAMinimizedConnectionTab_ReturnsItToDocumentTab() => RunWithMessagePump(() =>
         {
             (Form hostForm, DockPanel dockPanel) = ShowHostedDockPanel();

@@ -20,6 +20,8 @@ namespace mRemoteNG.UI.Tabs
     public partial class ConnectionTab : DockContent
     {
         private DockAreas? _dockAreasBeforeMinimize;
+        private DockPane? _paneBeforeMinimize;
+        private IDockContent? _contentAfterMinimize;
 
         /// <summary>
         ///Silent close ignores the popup asking for confirmation
@@ -51,6 +53,24 @@ namespace mRemoteNG.UI.Tabs
             DockPanel dockPanel = DockPanel;
             if (!CanMinimizeToBottomAutoHide() || dockPanel == null)
                 return;
+
+            // Remember where the tab came from so restoring puts it back in the same pane and
+            // at the same position instead of appending it to an arbitrary document pane.
+            DockPane? pane = DockHandler.Pane;
+            if (pane != null && !pane.IsDisposed && pane.DockPanel == dockPanel && pane.DockState == DockState.Document)
+            {
+                _paneBeforeMinimize = pane;
+                // Use the concrete type: DockContentCollection hides IndexOf/Contains with "new"
+                // members that filter by DockState; through IList they would return -1.
+                DockContentCollection contents = pane.DisplayingContents;
+                int index = contents.IndexOf(this);
+                _contentAfterMinimize = index >= 0 && index + 1 < contents.Count ? contents[index + 1] : null;
+            }
+            else
+            {
+                _paneBeforeMinimize = null;
+                _contentAfterMinimize = null;
+            }
 
             if ((DockAreas & DockAreas.DockBottom) != DockAreas.DockBottom)
             {
@@ -87,7 +107,24 @@ namespace mRemoteNG.UI.Tabs
             if ((DockAreas & DockAreas.Document) != DockAreas.Document)
                 DockAreas |= DockAreas.Document;
 
-            Show(dockPanel, DockState.Document);
+            DockPane? originalPane = _paneBeforeMinimize;
+            if (originalPane != null && !originalPane.IsDisposed &&
+                originalPane.DockPanel == dockPanel && originalPane.DockState == DockState.Document)
+            {
+                // Show(pane, before) puts the tab back into the very pane it was minimized from
+                // and in front of the content that followed it, preserving the original order.
+                IDockContent? before = _contentAfterMinimize;
+                if (before != null && !originalPane.DisplayingContents.Contains(before))
+                    before = null;
+                Show(originalPane, before);
+            }
+            else
+            {
+                Show(dockPanel, DockState.Document);
+            }
+
+            _paneBeforeMinimize = null;
+            _contentAfterMinimize = null;
             dockPanel.ActiveAutoHideContent = null;
             DockHandler.Activate();
             return DockState == DockState.Document;
@@ -204,6 +241,8 @@ namespace mRemoteNG.UI.Tabs
             if (!e.Cancel && DockState == DockState.DockBottomAutoHide)
             {
                 RestoreDockAreasAfterMinimize();
+                _paneBeforeMinimize = null;
+                _contentAfterMinimize = null;
             }
 
             if (e.Cancel || FrmMain.Default == null || FrmMain.Default.IsClosing)
