@@ -1,12 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 using mRemoteNG.App;
 using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
+using mRemoteNG.Themes;
 using mRemoteNG.UI;
+using mRemoteNG.UI.Panels;
 using mRemoteNG.UI.Tabs;
 using mRemoteNG.UI.Window;
 using NSubstitute;
@@ -163,6 +166,59 @@ namespace mRemoteNGTests.UI.Window
                 openingTab.Dispose();
 
                 Assert.That(initiator.SwitchToOpenConnection(openingInfo), Is.False);
+            }
+            finally
+            {
+                Runtime.WindowList = previousWindowList;
+            }
+        }
+
+        [Test]
+        public void EmptyGeneralPanel_CanCloseWhenOptionsAreInMainDock_NotInItsConnDock()
+        {
+            using var hostForm = new Form
+            {
+                Width = 800,
+                Height = 600,
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual,
+                Location = new Point(-10000, -10000)
+            };
+
+            var dockPanel = new DockPanel
+            {
+                Dock = DockStyle.Fill,
+                DocumentStyle = DocumentStyle.DockingWindow,
+                Theme = new VS2015LightTheme()
+            };
+            hostForm.Controls.Add(dockPanel);
+            hostForm.Show();
+
+            using DockContent generalHost = new();
+            using ConnectionWindow general = new(generalHost, PanelAdder.DefaultPanelName);
+            general.Show(dockPanel, DockState.Document);
+
+            using DockContent otherHost = new();
+            using ConnectionWindow other = new(otherHost, "Other");
+            other.Show(dockPanel, DockState.Document);
+
+            // Options are a document of the main dock (the fixed AppWindows.Show behaviour),
+            // not of the General panel's inner connDock.
+            using DockContent options = new() { TabText = "Options" };
+            options.Show(dockPanel, DockState.Document);
+
+            WindowList previousWindowList = Runtime.WindowList;
+            Runtime.WindowList = [general, other];
+            try
+            {
+                Assert.That(general.IsGeneralPanel, Is.True);
+                Assert.That(general.connDock.Documents.Any(), Is.False,
+                            "Options must not be hosted inside the General panel");
+                general.UpdateCloseButtonVisibility();
+                Assert.That(general.CanClosePanelPublic(), Is.True,
+                            "An empty General panel must be closeable while another panel exists");
+                Assert.That(general.CloseButtonVisible, Is.True,
+                            "The X on the General tab must be visible");
             }
             finally
             {

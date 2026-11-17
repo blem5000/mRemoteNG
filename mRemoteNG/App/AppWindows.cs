@@ -489,16 +489,17 @@ namespace mRemoteNG.App
                         // discarded.  Safe on first call — no-op until FrmOptions is embedded.
                         OptionsFormWindow.RefreshSettings();
 
-                        ConnectionWindow generalPanel = FrmMain.Default.GetOrCreateGeneralPanel();
-                        if (OptionsFormWindow.DockPanel != generalPanel.connDock ||
+                        // Dock options as their own document in the main panel. Hosting them in
+                        // the General panel's connDock made them appear as a tab inside "General"
+                        // and blocked closing that panel (CanClosePanel saw a document there).
+                        if (OptionsFormWindow.DockPanel != dockPanel ||
                             OptionsFormWindow.DockState == DockState.Unknown ||
                             OptionsFormWindow.DockState == DockState.Hidden ||
                             !OptionsFormWindow.Visible)
                         {
-                            OptionsFormWindow.Show(generalPanel.connDock, DockState.Document);
+                            OptionsFormWindow.Show(dockPanel, DockState.Document);
                         }
 
-                        generalPanel.Activate();
                         OptionsFormWindow.Activate();
                         break;
                     case WindowType.Update:

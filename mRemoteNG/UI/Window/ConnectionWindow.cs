@@ -58,6 +58,7 @@ namespace mRemoteNG.UI.Window
             bool canCloseGeneral = CanClosePanel();
             CloseButton = !IsGeneralPanel || canCloseGeneral;
             CloseButtonVisible = !IsGeneralPanel || canCloseGeneral;
+            UpdateCloseButtonVisibility();
             connDock.DocumentStyle = DocumentStyle.DockingWindow;
             connDock.ShowDocumentIcon = true;
 
@@ -66,12 +67,24 @@ namespace mRemoteNG.UI.Window
 
         /// <summary>
         /// True when there is at least one other connection panel that can host new connections.
-        /// Used to allow closing an empty default "General" panel.
+        /// Used to allow closing an empty default "General" panel. Excludes this panel so a
+        /// lone General panel is never considered to have a "other" panel.
         /// </summary>
-        private static bool OtherConnectionPanelExists() =>
-            Runtime.WindowList?.OfType<ConnectionWindow>().Any(w => w != null && !w.IsDisposed) ?? false;
+        private bool OtherConnectionPanelExists() =>
+            Runtime.WindowList?.OfType<ConnectionWindow>().Any(w => w != null && !w.IsDisposed && !ReferenceEquals(w, this)) ?? false;
 
         public bool CanClosePanelPublic() => CanClosePanel();
+
+        /// <summary>
+        /// Refreshes the X button state. Called when panels are added/removed so an empty
+        /// General panel gains its X as soon as another panel exists (and loses it again).
+        /// </summary>
+        public void UpdateCloseButtonVisibility()
+        {
+            bool canClose = CanClosePanel();
+            CloseButton = !IsGeneralPanel || canClose;
+            CloseButtonVisible = !IsGeneralPanel || canClose;
+        }
 
         /// <summary>
         /// True when the panel can be closed: every normal panel, or an empty default "General"

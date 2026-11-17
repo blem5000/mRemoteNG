@@ -273,10 +273,8 @@ namespace mRemoteNG.UI.Forms
  
             SetMenuDependencies();
 
-            // Must be set before LoadPanelsFromXml(): on a first run with no saved pnlLayout.xml,
-            // LoadPanelsFromXml() falls back to SetDefaultLayout() -> EnsureGeneralPanel() ->
-            // PanelAdder.AddPanel(), which adds the new panel to Runtime.WindowList — a
-            // NullReferenceException if that list hasn't been created yet.
+            // Must be set before LoadPanelsFromXml() and before any panel is created:
+            // PanelAdder.AddPanel() adds new panels to Runtime.WindowList, so the list must exist.
             Runtime.WindowList = [];
 
             DockPanelLayoutLoader uiLoader = new(this, messageCollector);
@@ -332,7 +330,9 @@ namespace mRemoteNG.UI.Forms
 
             OptionsForm = new FrmOptions();
 
-            EnsureGeneralPanel();
+            // Do not create the default "General" panel unconditionally: the user can disable
+            // empty panels on startup (the default). A panel is created on demand when a
+            // connection is opened (ConnectionInitiator) or when the option is enabled below.
             ShowHidePanelTabs();
 
             if (!Properties.OptionsTabsPanelsPage.Default.CreateEmptyPanelOnStartUp)
@@ -899,6 +899,11 @@ namespace mRemoteNG.UI.Forms
 
         public void ShowHidePanelTabs(DockContent? closingDocument = null)
         {
+            // Keep each panel's X in sync with whether an empty "General" panel may close.
+            // AddPanel()/tab-close call this, so the X appears/disappears as panels come and go.
+            foreach (ConnectionWindow panel in pnlDock.Contents.OfType<ConnectionWindow>())
+                panel.UpdateCloseButtonVisibility();
+
             DocumentStyle newDocumentStyle;
             bool hasConnectionWindows = pnlDock.Contents.OfType<ConnectionWindow>().Any();
 
@@ -961,7 +966,8 @@ namespace mRemoteNG.UI.Forms
             ShowFileMenu();
 
             pnlDock.Visible = true;
-            EnsureGeneralPanel();
+            // No unconditional General panel here either: an empty panel on startup is controlled
+            // by CreateEmptyPanelOnStartUp in FrmMain_Load. Connections create their panel on demand.
         }
 
         public void ShowFileMenu()
