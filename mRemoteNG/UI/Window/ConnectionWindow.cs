@@ -52,13 +52,33 @@ namespace mRemoteNG.UI.Window
             // ReSharper disable once VirtualMemberCallInConstructor
             Text = formText;
             TabText = formText;
-            CloseButton = !IsGeneralPanel;
-            CloseButtonVisible = !IsGeneralPanel;
+            // The default "General" panel normally has no X: connections need somewhere to open.
+            // An empty General panel can still be closed when another panel exists - a new default
+            // one is created on demand the next time a connection is opened (see frmMain).
+            bool canCloseGeneral = CanClosePanel();
+            CloseButton = !IsGeneralPanel || canCloseGeneral;
+            CloseButtonVisible = !IsGeneralPanel || canCloseGeneral;
             connDock.DocumentStyle = DocumentStyle.DockingWindow;
             connDock.ShowDocumentIcon = true;
 
             connDock.ActiveContentChanged += ConnDockOnActiveContentChanged;
         }
+
+        /// <summary>
+        /// True when there is at least one other connection panel that can host new connections.
+        /// Used to allow closing an empty default "General" panel.
+        /// </summary>
+        private static bool OtherConnectionPanelExists() =>
+            Runtime.WindowList?.OfType<ConnectionWindow>().Any(w => w != null && !w.IsDisposed) ?? false;
+
+        public bool CanClosePanelPublic() => CanClosePanel();
+
+        /// <summary>
+        /// True when the panel can be closed: every normal panel, or an empty default "General"
+        /// panel while at least one other connection panel exists.
+        /// </summary>
+        private bool CanClosePanel() =>
+            !IsGeneralPanel || (!connDock.Documents.Any() && OtherConnectionPanelExists());
 
         private InterfaceControl GetInterfaceControl()
         {
@@ -347,7 +367,7 @@ namespace mRemoteNG.UI.Window
 
         private void Connection_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (IsGeneralPanel && !FrmMain.Default.IsClosing)
+            if (IsGeneralPanel && !FrmMain.Default.IsClosing && !CanClosePanel())
             {
                 e.Cancel = true;
                 return;

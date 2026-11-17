@@ -71,7 +71,7 @@ namespace mRemoteNG.UI.Panels
 
             if (pnlcForm is ConnectionWindow connectionWindow && connectionWindow.IsGeneralPanel)
             {
-                cMenClose.Visible = false;
+                cMenClose.Visible = connectionWindow.CanClosePanelPublic();
             }
 
             pnlcForm.TabPageContextMenuStrip = cMen;
