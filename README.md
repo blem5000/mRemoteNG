@@ -76,16 +76,15 @@ Jeśli interfejs wydaje Ci się zbyt duży lub zbyt mały (menu, drzewo połącz
 zmienić tryb skalowania bez przebudowywania programu. Ustaw zmienną środowiskową przed startem:
 
 ```powershell
-$env:MREMOTENG_DPI_MODE = "SystemAware"   # lub PerMonitorV2 / DpiUnaware / DpiUnawareGdiScaled
+$env:MREMOTENG_DPI_MODE = "DpiUnaware"   # lub SystemAware / PerMonitorV2 / DpiUnawareGdiScaled
 .\mRemoteNG.exe
 ```
 
-Dostępne wartości:
+Dostępne wartości — wybierz tę, która wygląda poprawnie na Twoim monitorze:
 
-- `SystemAware` — **domyślna**, skalowanie raz przy starcie; daje wygląd znany z wersji .NET 9
-  (mniejsze menu, wiersze drzewa i ikony),
-- `PerMonitorV2` — skalowanie niezależnie dla każdego monitora; interfejs jest wyraźnie większy,
-- `DpiUnaware` / `DpiUnawareGdiScaled` — Windows skaluje całe okno jako bitmapę.
+- `DpiUnaware` — Windows skaluje okno jako bitmapę; daje najmniejszy interfejs (podobny do wersji .NET 9),
+- `SystemAware` — skalowanie raz przy starcie; interfejs większy,
+- `PerMonitorV2` — **domyślna**, skalowanie niezależnie dla każdego monitora; interfejs największy.
 
 Nieprawidłowa wartość jest ignorowana i włączany jest domyślny `PerMonitorV2`.
 

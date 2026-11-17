@@ -32,18 +32,21 @@ namespace mRemoteNGTests.App
             Assert.That(DpiModeSelector.GetMode("12345"), Is.EqualTo(DpiModeSelector.DefaultMode));
         }
         [Test]
-        public void DefaultMode_IsSystemAware()
+        public void DefaultMode_MatchesUpstream()
         {
-            // Restores the layout of the .NET 9 build, which the user prefers over the clearly
-            // larger PerMonitorV2 interface from upstream.
-            Assert.That(DpiModeSelector.DefaultMode, Is.EqualTo(HighDpiMode.SystemAware));
-            Assert.That(DpiModeSelector.GetMode(null), Is.EqualTo(HighDpiMode.SystemAware));
+            // Keep upstream's default until the right value is confirmed on the user's display
+            // scaling; the mode can be overridden with MREMOTENG_DPI_MODE without a rebuild.
+            Assert.That(DpiModeSelector.DefaultMode, Is.EqualTo(HighDpiMode.PerMonitorV2));
+            Assert.That(DpiModeSelector.GetMode(null), Is.EqualTo(HighDpiMode.PerMonitorV2));
         }
 
         [Test]
-        public void PerMonitorV2_CanStillBeOptedInto()
+        public void AllModes_CanBeOptedInto()
         {
+            Assert.That(DpiModeSelector.GetMode("SystemAware"), Is.EqualTo(HighDpiMode.SystemAware));
             Assert.That(DpiModeSelector.GetMode("PerMonitorV2"), Is.EqualTo(HighDpiMode.PerMonitorV2));
+            Assert.That(DpiModeSelector.GetMode("DpiUnaware"), Is.EqualTo(HighDpiMode.DpiUnaware));
+            Assert.That(DpiModeSelector.GetMode("DpiUnawareGdiScaled"), Is.EqualTo(HighDpiMode.DpiUnawareGdiScaled));
         }
     }
 }

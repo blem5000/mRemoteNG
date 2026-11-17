@@ -38,15 +38,13 @@ namespace mRemoteNG.App
         [STAThread]
         public static void Main(string[] args)
         {
+            // DPI awareness must be set before ANY other API - including the configuration
+            // manager used below - otherwise WinForms ignores it and falls back to its default,
+            // which made the whole interface noticeably larger than in the .NET 9 build.
+            Application.SetHighDpiMode(DpiModeSelector.GetMode());
+
             // Fork: decide where the settings come from before anything touches them.
             Info.UserSettingsFile.Restore();
-
-            // Must be called before any other WinForms / Application.* usage so that
-            // per-monitor font scaling and hit-testing are initialised correctly from
-            // the very first UI operation (dialogs shown in MainAsync, exception
-            // handlers, EnableVisualStyles, …).  The app manifest already declares
-            // PerMonitorV2 awareness; this call keeps the WinForms runtime in sync.
-            Application.SetHighDpiMode(DpiModeSelector.GetMode());
 
             AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
             InitializeSqliteProvider();

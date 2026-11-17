@@ -45,11 +45,11 @@ namespace mRemoteNG.App
         /// <summary>
         /// Mode used when there is no override.
         ///
-        /// SystemAware restores the look of the .NET 9 build (smaller menus, tree rows and icons).
-        /// Upstream switched to PerMonitorV2 in 2026 to fix small fonts at 125% scaling, but that
-        /// mode makes the whole interface noticeably larger on common setups. Users can still opt
-        /// into it with MREMOTENG_DPI_MODE=PerMonitorV2.
+        /// PerMonitorV2 is the mode used by upstream. The DPI mode can be overridden with
+        /// MREMOTENG_DPI_MODE on systems where the interface appears too large or too small;
+        /// the right default depends on display scaling, which cannot be verified on every machine.
+        /// The call must be the very first statement in Main() - see ProgramRoot.Main().
         /// </summary>
-        public static HighDpiMode DefaultMode => HighDpiMode.SystemAware;
+        public static HighDpiMode DefaultMode => HighDpiMode.PerMonitorV2;
     }
 }
