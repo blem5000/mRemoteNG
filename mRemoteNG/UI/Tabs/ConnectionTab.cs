@@ -61,6 +61,38 @@ namespace mRemoteNG.UI.Tabs
             Show(dockPanel, DockState.DockBottomAutoHide);
         }
 
+        /// <summary>
+        /// True when this tab was minimized into the bottom auto-hide strip and can be
+        /// returned to its normal document tab.
+        /// </summary>
+        internal bool CanRestoreFromBottomAutoHide() =>
+            DockState == DockState.DockBottomAutoHide &&
+            !IsDisposed &&
+            !Disposing &&
+            DockPanel != null;
+
+        /// <summary>
+        /// Returns a tab minimized with <see cref="MinimizeToBottomAutoHide"/> to its
+        /// original document tab. A no-op for tabs that are not currently minimized.
+        /// </summary>
+        internal bool RestoreFromBottomAutoHide()
+        {
+            DockPanel dockPanel = DockPanel;
+            if (!CanRestoreFromBottomAutoHide() || dockPanel == null)
+                return false;
+
+            // Document must be allowed for the state change; DockBottom stays allowed until
+            // DockStateChanged fires, otherwise assigning DockAreas would be rejected. The
+            // original DockAreas are put back by RestoreDockAreasAfterMinimize().
+            if ((DockAreas & DockAreas.Document) != DockAreas.Document)
+                DockAreas |= DockAreas.Document;
+
+            Show(dockPanel, DockState.Document);
+            dockPanel.ActiveAutoHideContent = null;
+            DockHandler.Activate();
+            return DockState == DockState.Document;
+        }
+
         private void ConnectionTab_DockStateChanged(object? sender, EventArgs e)
         {
             if (_dockAreasBeforeMinimize == null || DockState != DockState.Document)

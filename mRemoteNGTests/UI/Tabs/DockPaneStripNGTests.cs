@@ -139,6 +139,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -196,6 +197,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -240,6 +242,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -269,6 +272,64 @@ namespace mRemoteNGTests.UI.Tabs
         });
 
         [Test]
+        public void ClickingMinimizeButton_MinimizesInsteadOfClosingConnectionTab() => RunWithMessagePump(() =>
+        {
+            // The click path uses Control.MousePosition, so the host must be on-screen.
+            var hostForm = new Form
+            {
+                Width = 800,
+                Height = 600,
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual,
+                Location = new Point(50, 50)
+            };
+            var dockPanel = new DockPanel
+            {
+                Dock = DockStyle.Fill,
+                DocumentStyle = DocumentStyle.DockingWindow,
+                Theme = new VS2015LightTheme()
+            };
+            dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
+            hostForm.Controls.Add(dockPanel);
+            hostForm.Show();
+            using (hostForm)
+            {
+                var doc1 = new DockContent { Text = "Doc1", TabText = "Doc1", CloseButton = true, CloseButtonVisible = true };
+                ConnectionTab doc2 = CreateConnectionTab("backbone1 / MA2_2F_01_P");
+                doc1.Show(dockPanel, DockState.Document);
+                doc2.Show(dockPanel, DockState.Document);
+                doc2.DockHandler.Activate();
+                Application.DoEvents();
+
+                DockPaneStripNG dockPaneStrip = FindDockPaneStripNG(dockPanel);
+                Assert.That(dockPaneStrip, Is.Not.Null, "Could not find DockPaneStripNG control");
+                dockPaneStrip.Refresh();
+                Application.DoEvents();
+
+                object tab = GetTabAtIndex(dockPaneStrip, 1);
+                Rectangle logicalTabRect = (Rectangle)tab.GetType().GetProperty("Rectangle").GetValue(tab);
+                MethodInfo getMinimizeButtonRect = typeof(DockPaneStripNG).GetMethod("GetMinimizeButtonRect", BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo getCloseButtonRect = typeof(DockPaneStripNG).GetMethod("GetCloseButtonRect", BindingFlags.Instance | BindingFlags.NonPublic);
+                Rectangle minimizeRect = (Rectangle)getMinimizeButtonRect.Invoke(dockPaneStrip, new object[] { logicalTabRect, doc2 });
+                Rectangle closeRect = (Rectangle)getCloseButtonRect.Invoke(dockPaneStrip, new object[] { logicalTabRect, doc2 });
+                Assert.That(minimizeRect, Is.Not.EqualTo(Rectangle.Empty), "Minimize button should be drawn for a connection tab");
+                Assert.That(minimizeRect.IntersectsWith(closeRect), Is.False, "Minimize and close hit areas must not overlap");
+
+                Rectangle visualMinimizeRect = DrawHelper.RtlTransform(dockPaneStrip, minimizeRect);
+                Point center = new(visualMinimizeRect.Left + visualMinimizeRect.Width / 2,
+                                   visualMinimizeRect.Top + visualMinimizeRect.Height / 2);
+                Cursor.Position = dockPaneStrip.PointToScreen(center);
+                InvokeOnMouseMove(dockPaneStrip, center);
+                InvokeOnMouseClick(dockPaneStrip, center);
+
+                Assert.That(doc2.DockState, Is.EqualTo(DockState.DockBottomAutoHide),
+                            "Clicking the down arrow should minimize the connection tab, not close it");
+                Assert.That(doc2.IsDisposed, Is.False, "The connection tab must stay alive after minimizing");
+            }
+        });
+
+        [Test]
         public void ConnectionTabMinimizeToBottomAutoHide_ChangesDockState() => RunWithMessagePump(() =>
         {
             using var hostForm = new Form
@@ -288,6 +349,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -315,6 +377,116 @@ namespace mRemoteNGTests.UI.Tabs
         });
 
         [Test]
+        public void RestoringAMinimizedConnectionTab_ReturnsItToDocumentTab() => RunWithMessagePump(() =>
+        {
+            (Form hostForm, DockPanel dockPanel) = ShowHostedDockPanel();
+            using (hostForm)
+            {
+                ConnectionTab connectionTab = CreateConnectionTab("backbone1 / MA2_2F_01_P");
+                connectionTab.Show(dockPanel, DockState.Document);
+                Application.DoEvents();
+
+                connectionTab.MinimizeToBottomAutoHide();
+                Application.DoEvents();
+                Assert.That(connectionTab.DockState, Is.EqualTo(DockState.DockBottomAutoHide));
+                Assert.That(connectionTab.CanRestoreFromBottomAutoHide(), Is.True,
+                            "A minimized connection tab must be restorable");
+
+                Assert.That(connectionTab.RestoreFromBottomAutoHide(), Is.True);
+                Application.DoEvents();
+
+                Assert.That(connectionTab.DockState, Is.EqualTo(DockState.Document),
+                            "The connection tab should return to the document strip");
+                Assert.That(connectionTab.DockAreas, Is.EqualTo(DockAreas.Document | DockAreas.Float),
+                            "The original docking areas should be restored");
+                Assert.That(connectionTab.CanRestoreFromBottomAutoHide(), Is.False,
+                            "A restored tab is no longer minimized");
+            }
+        });
+
+        [Test]
+        public void NarrowTab_DoesNotOverlapMinimizeAndCloseButtons() => RunWithMessagePump(() =>
+        {
+            (Form hostForm, DockPanel dockPanel) = ShowHostedDockPanel();
+            using (hostForm)
+            {
+                ConnectionTab connectionTab = CreateConnectionTab("x");
+                connectionTab.Show(dockPanel, DockState.Document);
+                Application.DoEvents();
+
+                DockPaneStripNG dockPaneStrip = FindDockPaneStripNG(dockPanel);
+                Assert.That(dockPaneStrip, Is.Not.Null);
+
+                MethodInfo getMinimizeButtonRect = typeof(DockPaneStripNG).GetMethod(
+                    "GetMinimizeButtonRect", BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo getCloseButtonRect = typeof(DockPaneStripNG).GetMethod(
+                    "GetCloseButtonRect", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                // A tab too narrow for both buttons must not draw the minimize arrow on top of
+                // the close X; that used to make a click on the arrow close the connection.
+                Rectangle narrowTab = new(0, 0, 24, 24);
+                Rectangle closeRect = (Rectangle)getCloseButtonRect.Invoke(dockPaneStrip, new object[] { narrowTab, connectionTab });
+                Rectangle minimizeRect = (Rectangle)getMinimizeButtonRect.Invoke(dockPaneStrip, new object[] { narrowTab, connectionTab });
+
+                Assert.That(minimizeRect, Is.EqualTo(Rectangle.Empty),
+                            "No minimize arrow should be drawn when the tab is too narrow");
+                Assert.That(minimizeRect.IntersectsWith(closeRect), Is.False,
+                            "The minimize and close hit areas must never overlap");
+            }
+        });
+
+        [Test]
+        public void ClickingRestoreArrowOnAutoHideStrip_RestoresMinimizedConnectionTab() => RunWithMessagePump(() =>
+        {
+            (Form hostForm, DockPanel dockPanel) = ShowHostedDockPanel();
+            using (hostForm)
+            {
+                // The theme creates the auto-hide strip when it is applied, before the
+                // custom factory is assigned in the test, so recreate it with our factory.
+                MethodInfo resetAutoHideStrip = typeof(DockPanel).GetMethod(
+                    "ResetAutoHideStripControl", BindingFlags.Instance | BindingFlags.NonPublic);
+                resetAutoHideStrip.Invoke(dockPanel, null);
+                Application.DoEvents();
+
+                ConnectionTab connectionTab = CreateConnectionTab("backbone1 / MA2_2F_01_P");
+                connectionTab.Show(dockPanel, DockState.Document);
+                Application.DoEvents();
+
+                connectionTab.MinimizeToBottomAutoHide();
+                Application.DoEvents();
+
+                PropertyInfo autoHideStripProperty = typeof(DockPanel).GetProperty(
+                    "AutoHideStripControl", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(autoHideStripProperty, Is.Not.Null, "Could not find DockPanel.AutoHideStripControl");
+                MremoteNGAutoHideStrip autoHideStrip = (MremoteNGAutoHideStrip)autoHideStripProperty.GetValue(dockPanel);
+                Assert.That(autoHideStrip, Is.Not.Null, "Could not find the auto-hide strip");
+                autoHideStrip.Refresh();
+                Application.DoEvents();
+
+                object tab = GetFirstAutoHideTab(autoHideStrip, DockState.DockBottomAutoHide);
+                Assert.That(tab, Is.Not.Null, "The minimized connection tab should be in the bottom auto-hide strip");
+
+                MethodInfo getRestoreArrowRect = typeof(MremoteNGAutoHideStrip).GetMethod(
+                    "GetRestoreArrowRectangle", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(getRestoreArrowRect, Is.Not.Null, "Could not find GetRestoreArrowRectangle");
+                Rectangle arrowRect = (Rectangle)getRestoreArrowRect.Invoke(autoHideStrip, new object[] { tab });
+                Assert.That(arrowRect, Is.Not.EqualTo(Rectangle.Empty), "The restore arrow should be drawn");
+
+                Point center = new(arrowRect.Left + arrowRect.Width / 2, arrowRect.Top + arrowRect.Height / 2);
+                MethodInfo onMouseDown = typeof(MremoteNGAutoHideStrip).GetMethod(
+                    "OnMouseDown", BindingFlags.Instance | BindingFlags.NonPublic);
+                onMouseDown.Invoke(autoHideStrip, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1, center.X, center.Y, 0)
+                });
+                Application.DoEvents();
+
+                Assert.That(connectionTab.DockState, Is.EqualTo(DockState.Document),
+                            "Clicking the up arrow on the auto-hide tab should restore the document tab");
+            }
+        });
+
+        [Test]
         public void ClosingAConnectionTabWhileMinimized_DoesNotThrow() => RunWithMessagePump(() =>
         {
             using var hostForm = new Form
@@ -334,6 +506,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -382,6 +555,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -424,6 +598,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -483,6 +658,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -537,6 +713,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -600,6 +777,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -736,6 +914,7 @@ namespace mRemoteNGTests.UI.Tabs
             };
 
             dockPanel.Theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+                dockPanel.Theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
 
             hostForm.Controls.Add(dockPanel);
             hostForm.Show();
@@ -773,6 +952,35 @@ namespace mRemoteNGTests.UI.Tabs
             return (int)tabWidthProperty.GetValue(tab);
         }
 
+        private static T FindControl<T>(Control parent) where T : Control
+        {
+            foreach (Control c in parent.Controls)
+            {
+                if (c is T match)
+                    return match;
+
+                T result = FindControl<T>(c);
+                if (result != null) return result;
+            }
+
+            return null;
+        }
+
+        private static object GetFirstAutoHideTab(MremoteNGAutoHideStrip strip, DockState dockState)
+        {
+            MethodInfo getPanes = typeof(MremoteNGAutoHideStrip).GetMethod("GetPanes", BindingFlags.Instance | BindingFlags.NonPublic);
+            object panes = getPanes.Invoke(strip, new object[] { dockState });
+            if ((int)panes.GetType().GetProperty("Count").GetValue(panes) == 0)
+                return null;
+
+            object pane = panes.GetType().GetProperty("Item").GetValue(panes, new object[] { 0 });
+            object tabs = pane.GetType().GetProperty("AutoHideTabs").GetValue(pane);
+            if ((int)tabs.GetType().GetProperty("Count").GetValue(tabs) == 0)
+                return null;
+
+            return tabs.GetType().GetProperty("Item").GetValue(tabs, new object[] { 0 });
+        }
+
         private static DockPaneStripNG FindDockPaneStripNG(Control parent)
         {
             foreach (Control c in parent.Controls)
@@ -807,6 +1015,15 @@ namespace mRemoteNGTests.UI.Tabs
             Assert.That(onMouseMoveMethod, Is.Not.Null, "Could not find OnMouseMove method");
 
             onMouseMoveMethod.Invoke(control, new object[] { new MouseEventArgs(MouseButtons.None, 0, point.X, point.Y, 0) });
+            Application.DoEvents();
+        }
+
+        private static void InvokeOnMouseClick(Control control, Point point)
+        {
+            MethodInfo onMouseClickMethod = control.GetType().GetMethod("OnMouseClick", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(onMouseClickMethod, Is.Not.Null, "Could not find OnMouseClick method");
+
+            onMouseClickMethod.Invoke(control, new object[] { new MouseEventArgs(MouseButtons.Left, 1, point.X, point.Y, 0) });
             Application.DoEvents();
         }
 

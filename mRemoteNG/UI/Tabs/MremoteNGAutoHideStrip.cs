@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.Versioning;
 using System.Windows.Forms;
+using mRemoteNG.Properties;
 using WeifenLuo.WinFormsUI.Docking;
 
 namespace mRemoteNG.UI.Tabs
@@ -30,6 +31,8 @@ namespace mRemoteNG.UI.Tabs
         private const int _ImageGapBottom = 2;
         private const int _TextGapLeft = 0;
         private const int _TextGapRight = 0;
+        private const int _RestoreArrowWidth = 16;
+        private const int _RestoreArrowGap = 2;
         private const int _TabGapTop = 3;
         private const int _TabGapLeft = 4;
         private const int _TabGapBetween = 10;
@@ -112,6 +115,10 @@ namespace mRemoteNG.UI.Tabs
         private static int TabGapLeft => _TabGapLeft;
 
         private static int TabGapBetween => _TabGapBetween;
+
+        private static int RestoreArrowWidth => _RestoreArrowWidth;
+
+        private static int RestoreArrowGap => _RestoreArrowGap;
 
         private static Pen PenTabBorder => SystemPens.GrayText;
 
@@ -241,6 +248,10 @@ namespace mRemoteNG.UI.Tabs
                     int width = imageWidth + ImageGapLeft + ImageGapRight +
                                 TextRenderer.MeasureText(tab.Content.DockHandler.TabText, TextFont).Width +
                                 TextGapLeft + TextGapRight;
+                    // A connection tab minimized to the bottom strip carries an up arrow that
+                    // returns it to its document tab, so it needs room for the arrow as well.
+                    if (dockState == DockState.DockBottomAutoHide && IsMinimizedConnectionTab(tab))
+                        width += RestoreArrowWidth + RestoreArrowGap;
                     tab.TabX = x;
                     tab.TabWidth = width;
                     x += width;
@@ -329,9 +340,12 @@ namespace mRemoteNG.UI.Tabs
                 }
 
                 // Draw the text
+                bool canRestore = IsMinimizedConnectionTab(tab);
                 Rectangle rectText = rectTabOrigin;
                 rectText.X += ImageGapLeft + imageWidth + ImageGapRight + TextGapLeft;
                 rectText.Width -= ImageGapLeft + imageWidth + ImageGapRight + TextGapLeft;
+                if (canRestore)
+                    rectText.Width -= RestoreArrowWidth + RestoreArrowGap;
                 rectText = RtlTransform(GetTransformedRectangle(dockState, rectText), dockState);
 
                 Color textColor = DockPanel.Theme.Skin.AutoHideStripSkin.TabGradient.TextColor;
@@ -342,6 +356,14 @@ namespace mRemoteNG.UI.Tabs
                 else
                     g.DrawString(content.DockHandler.TabText, TextFont, new SolidBrush(textColor), rectText,
                                  StringFormatTabHorizontal);
+
+                // Minimized connection tabs show an up arrow that restores the document tab.
+                if (canRestore)
+                {
+                    Rectangle restoreArrowRect = GetRestoreArrowRectangle(tab);
+                    if (!restoreArrowRect.IsEmpty)
+                        g.DrawImage(Properties.Resources.GlyphUp_16x, restoreArrowRect);
+                }
 
                 // Set rotate back
                 g.Transform = matrixRotate;
@@ -409,6 +431,27 @@ namespace mRemoteNG.UI.Tabs
         private Rectangle GetTabRectangle(TabNG tab)
         {
             return GetTabRectangle(tab, false);
+        }
+
+        private static bool IsMinimizedConnectionTab(TabNG tab) =>
+            tab.Content is ConnectionTab connectionTab &&
+            connectionTab.CanRestoreFromBottomAutoHide();
+
+        /// <summary>
+        /// The (visual/client) rectangle of the up arrow drawn on a minimized connection tab.
+        /// Empty when the tab is not a minimized connection tab.
+        /// </summary>
+        private Rectangle GetRestoreArrowRectangle(TabNG tab)
+        {
+            if (tab.Content.DockHandler.DockState != DockState.DockBottomAutoHide ||
+                !IsMinimizedConnectionTab(tab))
+                return Rectangle.Empty;
+
+            Rectangle tabRect = GetTabRectangle(tab);
+            Rectangle arrowRect = new(tabRect.Right - RestoreArrowWidth - RestoreArrowGap,
+                                      tabRect.Y + (tabRect.Height - RestoreArrowWidth) / 2,
+                                      RestoreArrowWidth, RestoreArrowWidth);
+            return RtlTransform(arrowRect, DockState.DockBottomAutoHide);
         }
 
         private Rectangle GetTabRectangle(TabNG tab, bool transformed)
@@ -482,6 +525,34 @@ namespace mRemoteNG.UI.Tabs
             GraphicsPath path = GetTabOutline((TabNG)tab, true, true);
             RectangleF bounds = path.GetBounds();
             return new Rectangle((int)bounds.Left, (int)bounds.Top, (int)bounds.Width, (int)bounds.Height);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            // Clicking the up arrow on a minimized connection tab restores it to a document
+            // tab. Without this, auto-hide only toggles the popup and the connection stays
+            // minimized with no way back.
+            if (e.Button == MouseButtons.Left)
+            {
+                foreach (DockState state in DockStates)
+                {
+                    foreach (Pane pane in GetPanes(state))
+                    {
+                        foreach (TabNG tab in pane.AutoHideTabs)
+                        {
+                            Rectangle arrowRect = GetRestoreArrowRectangle(tab);
+                            if (arrowRect.IsEmpty || !arrowRect.Contains(e.Location))
+                                continue;
+
+                            if (tab.Content is ConnectionTab connectionTab)
+                                connectionTab.RestoreFromBottomAutoHide();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            base.OnMouseDown(e);
         }
 
         protected override int MeasureHeight()

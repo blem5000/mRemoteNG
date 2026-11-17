@@ -166,6 +166,7 @@ namespace mRemoteNG.Themes
         private void setCustomExtenders()
         {
             _theme.Extender.DockPaneStripFactory = new MremoteDockPaneStripFactory();
+            _theme.Extender.AutoHideStripFactory = new MremoteAutoHideStripFactory();
             _theme.Extender.FloatWindowFactory = new MremoteFloatWindowFactory();
         }
     }

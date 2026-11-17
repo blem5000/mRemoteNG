@@ -29,6 +29,15 @@ namespace mRemoteNG.Themes
         public DockPaneStripBase CreateDockPaneStrip(DockPane pane) => new DockPaneStripNG(pane);
     }
 
+    /// <summary>
+    /// Uses the mRemoteNG auto-hide strip, which draws an up arrow on minimized connection
+    /// tabs so they can be restored to document tabs.
+    /// </summary>
+    public class MremoteAutoHideStripFactory : DockPanelExtender.IAutoHideStripFactory
+    {
+        public AutoHideStripBase CreateAutoHideStrip(DockPanel panel) => new MremoteNGAutoHideStrip(panel);
+    }
+
     public class MremoteFloatWindowFactory : DockPanelExtender.IFloatWindowFactory
     {
         public FloatWindow CreateFloatWindow(DockPanel dockPanel, DockPane pane, Rectangle bounds)

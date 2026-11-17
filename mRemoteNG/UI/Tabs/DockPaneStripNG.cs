@@ -1367,7 +1367,9 @@ namespace mRemoteNG.UI.Tabs
 
             Rectangle minimizeButtonRect = new(closeButtonRect.X - closeButtonRect.Width - DocumentActionButtonSpacing,
                                                closeButtonRect.Y, closeButtonRect.Width, closeButtonRect.Height);
-            return minimizeButtonRect.Left >= rectTab.Left ? minimizeButtonRect : closeButtonRect;
+            // Never fall back to the close rectangle: that would draw the down arrow on top of
+            // the X and make a click on the arrow close the tab instead of minimizing it.
+            return minimizeButtonRect.Left >= rectTab.Left ? minimizeButtonRect : Rectangle.Empty;
         }
 
         private static bool CanShowMinimizeButton(IDockContent content)
