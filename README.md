@@ -70,6 +70,25 @@ Sprawdzić można ręcznie: **Pomoc → Sprawdź aktualizacje**, albo automatycz
 > Uwaga: GitHub udostępnia API bez logowania z limitem 60 zapytań na godzinę na adres IP —
 > przy normalnym użytkowaniu to w zupełności wystarcza.
 
+### Skalowanie interfejsu (DPI)
+
+Jeśli interfejs wydaje Ci się zbyt duży lub zbyt mały (menu, drzewo połączeń, ikony), możesz
+zmienić tryb skalowania bez przebudowywania programu. Ustaw zmienną środowiskową przed startem:
+
+```powershell
+$env:MREMOTENG_DPI_MODE = "SystemAware"   # lub PerMonitorV2 / DpiUnaware / DpiUnawareGdiScaled
+.\mRemoteNG.exe
+```
+
+Dostępne wartości:
+
+- `SystemAware` — **domyślna**, skalowanie raz przy starcie; daje wygląd znany z wersji .NET 9
+  (mniejsze menu, wiersze drzewa i ikony),
+- `PerMonitorV2` — skalowanie niezależnie dla każdego monitora; interfejs jest wyraźnie większy,
+- `DpiUnaware` / `DpiUnawareGdiScaled` — Windows skaluje całe okno jako bitmapę.
+
+Nieprawidłowa wartość jest ignorowana i włączany jest domyślny `PerMonitorV2`.
+
 ## Wymagania
 
 - Windows 10 (1809+) / 11 x64 lub ARM64,

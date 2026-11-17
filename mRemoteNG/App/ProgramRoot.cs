@@ -46,7 +46,7 @@ namespace mRemoteNG.App
             // the very first UI operation (dialogs shown in MainAsync, exception
             // handlers, EnableVisualStyles, …).  The app manifest already declares
             // PerMonitorV2 awareness; this call keeps the WinForms runtime in sync.
-            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+            Application.SetHighDpiMode(DpiModeSelector.GetMode());
 
             AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
             InitializeSqliteProvider();

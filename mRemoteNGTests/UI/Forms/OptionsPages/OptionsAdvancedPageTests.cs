@@ -1,6 +1,7 @@
 ﻿using System.Threading;
 using System.Windows.Forms;
 using System.Reflection;
+using System.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 using mRemoteNG.App;
@@ -56,8 +57,16 @@ namespace mRemoteNGTests.UI.Forms.OptionsPages
         {
             // The profile store prompts for a password at startup and replaces the connection file,
             // so a fresh installation must never opt into it implicitly.
-            OptionsAdvancedPage defaults = new();
-            Assert.That(defaults.UseUserProfiles, Is.False);
+            // Read the declared default from the attribute: reading Default from the shared settings
+            // singleton is affected by other tests that toggle it and let it run in any order.
+            var attribute = typeof(OptionsAdvancedPage)
+                .GetProperty(nameof(OptionsAdvancedPage.UseUserProfiles))
+                ?.GetCustomAttributes(typeof(DefaultSettingValueAttribute), inherit: false)
+                .OfType<DefaultSettingValueAttribute>()
+                .FirstOrDefault();
+
+            Assert.That(attribute, Is.Not.Null, "UseUserProfiles has no declared default");
+            Assert.That(attribute.Value, Is.EqualTo("False"));
         }
 
         [Test]
@@ -79,6 +88,9 @@ namespace mRemoteNGTests.UI.Forms.OptionsPages
             finally
             {
                 OptionsAdvancedPage.Default.UseUserProfiles = originalValue;
+                // Restore it on disk as well: SaveAllOptions() above wrote the toggled value, and
+                // the next test ("DefaultsToDisabled") reads it back from user.config.
+                OptionsAdvancedPage.Default.Save();
             }
         }
 
