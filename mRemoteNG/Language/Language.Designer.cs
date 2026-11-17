@@ -6927,6 +6927,15 @@ namespace mRemoteNG.Resources.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Interface scaling (restart required).
+        /// </summary>
+        internal static string InterfaceScaling {
+            get {
+                return ResourceManager.GetString("InterfaceScaling", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Show for user.
         /// </summary>
         internal static string ShowForUser {

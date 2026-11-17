@@ -1793,6 +1793,9 @@ If you run into such an error, please create a new connection file!</value>
   <data name="EnableConnectionTreeAnimations" xml:space="preserve">
     <value>Enable connection tree expand/collapse animations</value>
   </data>
+  <data name="InterfaceScaling" xml:space="preserve">
+    <value>Interface scaling (restart required)</value>
+  </data>
   <data name="ShowFullConsFilePath" xml:space="preserve">
     <value>Show full connections file path in window title</value>
   </data>

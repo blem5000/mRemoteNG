@@ -38,6 +38,10 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkMinimizeToSystemTray.Text = Language.MinimizeToSysTray;
             chkCloseToSystemTray.Text = Language.CloseToSysTray;
             chkEnableConnectionTreeAnimations.Text = Language.EnableConnectionTreeAnimations;
+            lblDpiMode.Text = Language.InterfaceScaling;
+            cboDpiMode.Items.Clear();
+            foreach (string name in DpiModeSelector.AllModeNames)
+                cboDpiMode.Items.Add(name);
             lblRegistrySettingsUsedInfo.Text = Language.OptionsCompanyPolicyMessage;
         }
 
@@ -68,6 +72,11 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkMinimizeToSystemTray.Checked = Properties.OptionsAppearancePage.Default.MinimizeToTray;
             chkCloseToSystemTray.Checked = Properties.OptionsAppearancePage.Default.CloseToTray;
             chkEnableConnectionTreeAnimations.Checked = Properties.OptionsAppearancePage.Default.EnableConnectionTreeAnimations;
+
+            string dpiMode = Properties.OptionsAppearancePage.Default.DpiMode;
+            cboDpiMode.SelectedItem = DpiModeSelector.IsKnownMode(dpiMode)
+                ? dpiMode
+                : DpiModeSelector.DefaultModeName;
         }
 
         public override void SaveSettings()
@@ -106,6 +115,8 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             Properties.OptionsAppearancePage.Default.MinimizeToTray = chkMinimizeToSystemTray.Checked;
             Properties.OptionsAppearancePage.Default.CloseToTray = chkCloseToSystemTray.Checked;
             Properties.OptionsAppearancePage.Default.EnableConnectionTreeAnimations = chkEnableConnectionTreeAnimations.Checked;
+            Properties.OptionsAppearancePage.Default.DpiMode =
+                cboDpiMode.SelectedItem as string ?? DpiModeSelector.DefaultModeName;
         }
 
         public override void LoadRegistrySettings()

@@ -23,5 +23,8 @@
     <Setting Name="EnableConnectionTreeAnimations" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="DpiMode" Type="System.String" Scope="User">
+      <Value Profile="(Default)">PerMonitorV2</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

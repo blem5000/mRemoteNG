@@ -106,5 +106,17 @@ namespace mRemoteNG.Properties {
                 this["EnableConnectionTreeAnimations"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("PerMonitorV2")]
+        public string DpiMode {
+            get {
+                return ((string)(this["DpiMode"]));
+            }
+            set {
+                this["DpiMode"] = value;
+            }
+        }
     }
 }

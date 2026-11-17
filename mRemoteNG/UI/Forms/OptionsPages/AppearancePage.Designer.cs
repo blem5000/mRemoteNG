@@ -44,6 +44,8 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkMinimizeToSystemTray = new MrngCheckBox();
             chkCloseToSystemTray = new MrngCheckBox();
             chkEnableConnectionTreeAnimations = new MrngCheckBox();
+            lblDpiMode = new MrngLabel();
+            cboDpiMode = new ComboBox();
             pnlOptions = new Panel();
             tableLayoutPanelAppearance = new TableLayoutPanel();
             lblRegistrySettingsUsedInfo = new System.Windows.Forms.Label();
@@ -169,6 +171,28 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             chkEnableConnectionTreeAnimations.Text = "Enable connection tree expand/collapse animations";
             chkEnableConnectionTreeAnimations.UseVisualStyleBackColor = true;
             // 
+            // lblDpiMode
+            // 
+            lblDpiMode.AutoSize = true;
+            lblDpiMode.Dock = DockStyle.Fill;
+            lblDpiMode.Location = new System.Drawing.Point(6, 240);
+            lblDpiMode.Margin = new Padding(6, 6, 3, 0);
+            lblDpiMode.Name = "lblDpiMode";
+            lblDpiMode.Size = new System.Drawing.Size(571, 13);
+            lblDpiMode.TabIndex = 9;
+            lblDpiMode.Text = "Interface scaling (restart required)";
+            // 
+            // cboDpiMode
+            // 
+            cboDpiMode.Dock = DockStyle.Fill;
+            cboDpiMode.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboDpiMode.FormattingEnabled = true;
+            cboDpiMode.IntegralHeight = false;
+            cboDpiMode.Margin = new Padding(6, 3, 24, 6);
+            cboDpiMode.Name = "cboDpiMode";
+            cboDpiMode.Size = new System.Drawing.Size(550, 23);
+            cboDpiMode.TabIndex = 10;
+            // 
             // pnlOptions
             // 
             pnlOptions.Controls.Add(tableLayoutPanelAppearance);
@@ -192,10 +216,14 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             tableLayoutPanelAppearance.Controls.Add(chkMinimizeToSystemTray, 0, 6);
             tableLayoutPanelAppearance.Controls.Add(chkCloseToSystemTray, 0, 7);
             tableLayoutPanelAppearance.Controls.Add(chkEnableConnectionTreeAnimations, 0, 8);
+            tableLayoutPanelAppearance.Controls.Add(lblDpiMode, 0, 9);
+            tableLayoutPanelAppearance.Controls.Add(cboDpiMode, 0, 10);
             tableLayoutPanelAppearance.Dock = DockStyle.Fill;
             tableLayoutPanelAppearance.Location = new System.Drawing.Point(0, 0);
             tableLayoutPanelAppearance.Name = "tableLayoutPanelAppearance";
-            tableLayoutPanelAppearance.RowCount = 9;
+            tableLayoutPanelAppearance.RowCount = 11;
+            tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
+            tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
             tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
             tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
             tableLayoutPanelAppearance.RowStyles.Add(new RowStyle());
@@ -244,6 +272,8 @@ namespace mRemoteNG.UI.Forms.OptionsPages
         internal MrngCheckBox chkMinimizeToSystemTray;
         internal MrngCheckBox chkCloseToSystemTray;
         internal MrngCheckBox chkEnableConnectionTreeAnimations;
+        internal Controls.MrngLabel lblDpiMode;
+        internal ComboBox cboDpiMode;
         private Panel pnlOptions;
         private TableLayoutPanel tableLayoutPanelAppearance;
         internal System.Windows.Forms.Label lblRegistrySettingsUsedInfo;

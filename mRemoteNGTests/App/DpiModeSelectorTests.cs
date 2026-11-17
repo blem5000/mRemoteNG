@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Windows.Forms;
 using mRemoteNG.App;
 using NUnit.Framework;
@@ -47,6 +48,55 @@ namespace mRemoteNGTests.App
             Assert.That(DpiModeSelector.GetMode("PerMonitorV2"), Is.EqualTo(HighDpiMode.PerMonitorV2));
             Assert.That(DpiModeSelector.GetMode("DpiUnaware"), Is.EqualTo(HighDpiMode.DpiUnaware));
             Assert.That(DpiModeSelector.GetMode("DpiUnawareGdiScaled"), Is.EqualTo(HighDpiMode.DpiUnawareGdiScaled));
+        }
+
+        private static string MakeConfig(string value)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "dpi-" + Guid.NewGuid().ToString("N") + ".config");
+            string xml = "<configuration><userSettings><mRemoteNG.Properties.OptionsAppearancePage>" +
+                         "<setting name=\"DpiMode\" serializeAs=\"String\"><value>" + value + "</value></setting>" +
+                         "</mRemoteNG.Properties.OptionsAppearancePage></userSettings></configuration>";
+            File.WriteAllText(path, xml);
+            return path;
+        }
+
+        [Test]
+        public void ReadSettingFromXml_ParsesSavedValue()
+        {
+            string path = MakeConfig("DpiUnaware");
+            try
+            {
+                Assert.That(DpiModeSelector.ReadSettingFromXml(path, DpiModeSelector.SettingName),
+                            Is.EqualTo("DpiUnaware"));
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Test]
+        public void GetConfiguredMode_UsesSavedValue()
+        {
+            string path = MakeConfig("SystemAware");
+            try
+            {
+                Assert.That(DpiModeSelector.GetConfiguredMode(new[] { path }),
+                            Is.EqualTo(HighDpiMode.SystemAware));
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Test]
+        public void GetConfiguredMode_FallsBackForMissingOrInvalidFile()
+        {
+            Assert.That(DpiModeSelector.GetConfiguredMode(new[] { Path.Combine(Path.GetTempPath(), "no-such-file") }),
+                        Is.EqualTo(DpiModeSelector.DefaultMode));
+
+            string path = MakeConfig("nonsense");
+            try
+            {
+                Assert.That(DpiModeSelector.GetConfiguredMode(new[] { path }),
+                            Is.EqualTo(DpiModeSelector.DefaultMode));
+            }
+            finally { File.Delete(path); }
         }
     }
 }
