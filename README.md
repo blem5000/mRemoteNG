@@ -1,8 +1,8 @@
-# mRemoteNG — build Blem5000
+# mRemoteNG — build Grzegorz O
 
 Zarządzanie wieloma połączeniami zdalnymi w jednym oknie: RDP, SSH, VNC, Telnet, HTTP/HTTPS
 i dowolne narzędzia zewnętrzne. Ten projekt jest kontynuacją mRemoteNG (GPLv2) prowadzoną przez
-[Blem5000](https://github.com/blem5000) — z poprawkami błędów, ciemnym motywem, własnym
+[Grzegorz O](https://github.com/blem5000) — z poprawkami błędów, ciemnym motywem, własnym
 aktualizatorem i jednym wydaniem zawierającym obie paczki.
 
 ## Pobieranie
