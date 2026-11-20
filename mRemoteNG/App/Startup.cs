@@ -97,8 +97,11 @@ namespace mRemoteNG.App
             try
             {
                 await _appUpdate.GetUpdateInfoAsync();
-                // Update is available, but don't show the panel automatically at startup
-                // User can check for updates manually via Help > Check for Updates menu
+                // Show the update panel when a newer build is actually available. This used to be
+                // disabled (commit 2329d950), which left UpdatePending=True in the settings but
+                // gave the user no visible hint at startup.
+                if (_appUpdate.IsUpdateAvailable())
+                    AppWindows.Show(WindowType.Update);
             }
             catch (Exception ex)
             {

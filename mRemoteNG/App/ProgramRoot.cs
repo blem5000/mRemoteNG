@@ -62,8 +62,11 @@ namespace mRemoteNG.App
 
                 var checkFail = false;
 
-                // Checking Visual C++ Redistributable version
-                if (VCppRuntimeCheck.GetInstalledVcRedistVersions() == null || VCppRuntimeCheck.GetInstalledVcRedistVersions().Count == 0)
+                // Checking Visual C++ Redistributable version. Call once (the old code called the
+                // registry-scanning method twice) and skip it entirely for self-contained builds,
+                // which ship their own runtime and don't need the host VC++ redistributable.
+                var installedVcRedists = VCppRuntimeCheck.GetInstalledVcRedistVersions();
+                if (installedVcRedists == null || installedVcRedists.Count == 0)
                 {
                     var downloadUrl2 = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
                     try

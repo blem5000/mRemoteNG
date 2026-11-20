@@ -15,6 +15,7 @@ namespace mRemoteNG.Config.Serializers
     {
         private readonly ICryptographyProvider _cryptographyProvider;
         private readonly RootNodeInfo _rootNodeInfo;
+        private SecureString? _cachedPassword;
 
         public Func<Optional<SecureString>> AuthenticationRequestor { get; set; }
 
@@ -50,9 +51,13 @@ namespace mRemoteNG.Config.Serializers
 
         public string Decrypt(string plainText)
         {
-            return plainText == ""
-                ? ""
-                : _cryptographyProvider.Decrypt(plainText, _rootNodeInfo.PasswordString.ConvertToSecureString());
+            if (plainText == "")
+                return "";
+
+            // The master password belongs to the file root, not to each field. Converting it to
+            // SecureString for every decrypted password was pure overhead on large files.
+            _cachedPassword ??= _rootNodeInfo.PasswordString.ConvertToSecureString();
+            return _cryptographyProvider.Decrypt(plainText, _cachedPassword);
         }
 
         public string LegacyFullFileDecrypt(string xml)

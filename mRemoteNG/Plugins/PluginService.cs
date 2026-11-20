@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.Loader;
@@ -97,6 +99,10 @@ public sealed class PluginService
 
             foreach (string pluginPath in pluginFiles)
             {
+                // Same cheap pre-filter as LoadPlugins: don't reflect over framework DLLs.
+                if (!MayBePlugin(pluginPath))
+                    continue;
+
                 App.Runtime.MessageCollector.AddMessage(Messages.MessageClass.InformationMsg, $"Plugin candidate: '{pluginPath}'.", true);
 
                 try
@@ -130,6 +136,44 @@ public sealed class PluginService
             .ToArray();
     }
 
+    /// <summary>
+    /// Cheap pre-filter: reads only the assembly metadata header (no load into the process)
+    /// and rejects DLLs that cannot possibly be mRemoteNG plugins. On a self-contained build
+    /// there are ~500 framework DLLs next to the exe; loading and reflecting over all of them
+    /// cost ~5.7 s at startup although none of them are plugins.
+    /// </summary>
+    private static bool MayBePlugin(string path)
+    {
+        try
+        {
+            // Read only the PE metadata - no assembly is loaded into the process, so this is
+            // fast enough to run over all ~500 DLLs of a self-contained build.
+            using FileStream stream = File.OpenRead(path);
+            using PEReader peReader = new(stream);
+            if (!peReader.HasMetadata)
+                return false;
+
+            MetadataReader md = peReader.GetMetadataReader();
+            foreach (AssemblyReferenceHandle handle in md.AssemblyReferences)
+            {
+                string reference = md.GetString(md.GetAssemblyReference(handle).Name);
+                if (string.Equals(reference, "mRemoteNG.PluginContracts", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            // Fall back to the assembly-name convention so custom plugins built against older
+            // contracts (or with a direct IPlugin implementation) are not silently dropped.
+            string assemblyName = md.GetString(md.GetAssemblyDefinition().Name);
+            return assemblyName.StartsWith("Plugin", StringComparison.OrdinalIgnoreCase)
+                   || assemblyName.Contains(".Plugin", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // Unreadable/native DLL - let the normal loader handle it (and log the error).
+            return true;
+        }
+    }
+
     public void LoadPlugins()
     {
         _plugins.Clear();
@@ -147,6 +191,10 @@ public sealed class PluginService
 
             foreach (string pluginPath in Directory.EnumerateFiles(pluginDirectory, "*.dll", SearchOption.TopDirectoryOnly))
             {
+                // Skip the hundreds of framework DLLs without loading them into the process.
+                if (!MayBePlugin(pluginPath))
+                    continue;
+
                 try
                 {
                     Assembly assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(pluginPath);

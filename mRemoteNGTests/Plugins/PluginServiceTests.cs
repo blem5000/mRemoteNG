@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -206,6 +207,17 @@ public class PluginServiceTests
         ToolWindowRegistration registration = new() { MenuText = "Example", WindowTitle = "Example", PanelName = "CustomPanel" };
 
         Assert.That(registration.PanelName, Is.EqualTo("CustomPanel"));
+    }
+
+    [Test]
+    public void MayBePlugin_RejectsFrameworkDlls_WithoutLoadingThem()
+    {
+        MethodInfo mayBePlugin = typeof(PluginService).GetMethod("MayBePlugin", BindingFlags.Static | BindingFlags.NonPublic)!;
+        Assert.That(mayBePlugin, Is.Not.Null);
+
+        string frameworkDll = typeof(object).Assembly.Location; // System.Private.CoreLib.dll
+        Assert.That((bool)mayBePlugin.Invoke(null, [frameworkDll])!, Is.False,
+                    "Framework assemblies must be skipped so startup doesn't reflect over ~500 DLLs");
     }
 
     [Test]

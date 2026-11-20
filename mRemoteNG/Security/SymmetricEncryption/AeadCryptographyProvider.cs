@@ -7,6 +7,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security;
 using System.Text;
@@ -27,6 +28,10 @@ namespace mRemoteNG.Security.SymmetricEncryption
         private readonly IAeadBlockCipher _aeadBlockCipher;
         private readonly Encoding _encoding;
         private readonly SecureRandom _random = new();
+        // Deriving a key runs PBKDF2 with KeyDerivationIterations rounds. When a connection file
+        // contains many passwords protected with the same master password and salt (common for
+        // generated files), recomputing it for every field dominated connection-file loading.
+        private readonly Dictionary<string, byte[]> _derivedKeyCache = new(StringComparer.Ordinal);
 
         //Preconfigured Encryption Parameters
         protected virtual int NonceBitSize { get; set; } = 128;
@@ -193,6 +198,24 @@ namespace mRemoteNG.Security.SymmetricEncryption
             return _encoding.GetString(plainText);
         }
 
+        private byte[] GetDerivedKey(string password, byte[] salt)
+        {
+            string cacheKey = KeyDerivationIterations + ":" + Convert.ToHexString(salt) + ":" + password;
+            lock (_derivedKeyCache)
+            {
+                if (_derivedKeyCache.TryGetValue(cacheKey, out byte[]? cached))
+                    return cached;
+            }
+
+            Pkcs5S2KeyGenerator keyDerivationFunction = new(KeyBitSize, KeyDerivationIterations);
+            byte[] key = keyDerivationFunction.DeriveKey(password, salt);
+            lock (_derivedKeyCache)
+            {
+                _derivedKeyCache[cacheKey] = key;
+            }
+            return key;
+        }
+
         private byte[] SimpleDecryptWithPassword(byte[] encryptedMessage, string password, int nonSecretPayloadLength = 0)
         {
             //User Error Checks
@@ -206,9 +229,8 @@ namespace mRemoteNG.Security.SymmetricEncryption
             byte[] salt = new byte[SaltBitSize / 8];
             Array.Copy(encryptedMessage, nonSecretPayloadLength, salt, 0, salt.Length);
 
-            //Generate Key
-            Pkcs5S2KeyGenerator keyDerivationFunction = new(KeyBitSize, KeyDerivationIterations);
-            byte[] key = keyDerivationFunction.DeriveKey(password, salt);
+            //Generate Key (cached per password+salt+iterations - PBKDF2 is deliberately slow)
+            byte[] key = GetDerivedKey(password, salt);
 
             return SimpleDecrypt(encryptedMessage, key, salt.Length + nonSecretPayloadLength);
         }
