@@ -91,6 +91,25 @@ namespace mRemoteNG.Connection.Protocol
             {
                 try
                 {
+                    // The embedded PuTTY window has its DWM frame extended into the whole client
+                    // area (margins = -1). Detaching a visible "glass" window from its parent and
+                    // then killing the process forces a full DWM recomposition, which shows up as
+                    // a white flash on every monitor. Undo the glass effect and hide the window
+                    // before detaching it so nothing visible is re-parented to the desktop.
+                    try
+                    {
+                        NativeMethods.MARGINS noMargins = new()
+                        {
+                            cxLeftWidth = 0, cxRightWidth = 0, cyTopHeight = 0, cyBottomHeight = 0
+                        };
+                        NativeMethods.DwmExtendFrameIntoClientArea(PuttyHandle, ref noMargins);
+                    }
+                    catch
+                    {
+                        // DWM may be unavailable; the window is hidden below regardless.
+                    }
+
+                    NativeMethods.ShowWindow(PuttyHandle, (int)NativeMethods.SW_HIDE);
                     NativeMethods.SetParent(PuttyHandle, IntPtr.Zero);
                 }
                 catch (Exception ex)

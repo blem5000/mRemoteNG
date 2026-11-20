@@ -9,6 +9,7 @@ using mRemoteNG.Connection;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Themes;
 using mRemoteNG.UI;
+using mRemoteNG.UI.Forms;
 using mRemoteNG.UI.Panels;
 using mRemoteNG.UI.Tabs;
 using mRemoteNG.UI.Window;
@@ -224,6 +225,82 @@ namespace mRemoteNGTests.UI.Window
             {
                 Runtime.WindowList = previousWindowList;
             }
+        }
+
+        /// <summary>
+        /// Smoke test for the layout regression where the first connection tab in a freshly
+        /// started panel stayed invisible until a tab was opened in a second panel. The cause
+        /// was replacing the Size=1,1 re-dock with PerformLayout() when the document style
+        /// changed; this pins that ApplyDocumentStyleRelayout actually resizes the panel,
+        /// which is the trigger DockPanelSuite needs to re-dock its document windows.
+        /// </summary>
+        [Test]
+        public void DocumentStyleRelayout_ResizesDockPanelToForceRedock()
+        {
+            using var dockPanel = new DockPanel
+            {
+                DocumentStyle = DocumentStyle.DockingSdi,
+                Theme = new VS2015LightTheme(),
+                Width = 800,
+                Height = 600
+            };
+            // No parent with Dock.Fill here so the 1x1 size stays observable.
+            bool wasResizedTo1x1 = false;
+            dockPanel.SizeChanged += (_, _) =>
+            {
+                if (dockPanel.Size.Width == 1 && dockPanel.Size.Height == 1)
+                    wasResizedTo1x1 = true;
+            };
+
+            FrmMain.ApplyDocumentStyleRelayout(dockPanel, DocumentStyle.DockingWindow);
+
+            Assert.That(dockPanel.DocumentStyle, Is.EqualTo(DocumentStyle.DockingWindow));
+            Assert.That(wasResizedTo1x1, Is.True,
+                        "The re-dock must resize the panel to 1x1; PerformLayout() alone makes new tabs invisible");
+        }
+
+        [Test]
+        public void NewConnectionTab_IsVisibleAfterDocumentStyleRelayout()
+        {
+            using var hostForm = new Form
+            {
+                Width = 800,
+                Height = 600,
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual,
+                Location = new Point(-10000, -10000)
+            };
+
+            var dockPanel = new DockPanel
+            {
+                Dock = DockStyle.Fill,
+                DocumentStyle = DocumentStyle.DockingSdi,
+                Theme = new VS2015LightTheme()
+            };
+            hostForm.Controls.Add(dockPanel);
+            hostForm.Show();
+
+            using DockContent panelHost = new();
+            using ConnectionWindow panel = new(panelHost, "MA1 BACKBONE");
+            panel.Show(dockPanel, DockState.Document);
+            Application.DoEvents();
+
+            // Production order: PanelAdder.AddPanel() calls ShowHidePanelTabs() before the first
+            // ConnectionTab is added. That changes DocumentStyle on a fresh start; the re-dock
+            // pass must complete correctly or later tabs in this panel stay invisible.
+            FrmMain.ApplyDocumentStyleRelayout(dockPanel, DocumentStyle.DockingWindow);
+            Application.DoEvents();
+
+            using ConnectionTab tab = new() { TabText = "backbone1 / MA2_2F_01_P" };
+            tab.Show(panel.connDock, DockState.Document);
+            Application.DoEvents();
+
+            Assert.That(dockPanel.DocumentStyle, Is.EqualTo(DocumentStyle.DockingWindow));
+            Assert.That(panel.connDock.Documents, Does.Contain(tab),
+                        "The first connection tab must be a document of the panel");
+            Assert.That(tab.Visible, Is.True,
+                        "A newly opened connection tab must be visible without opening a second panel");
+            Assert.That(tab.IsHandleCreated, Is.True);
         }
     }
 }

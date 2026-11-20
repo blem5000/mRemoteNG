@@ -948,13 +948,24 @@ namespace mRemoteNG.UI.Forms
 			}
 #endif
 
-            if (pnlDock.DocumentStyle == newDocumentStyle) return;
-            pnlDock.DocumentStyle = newDocumentStyle;
-            // Force a relayout without shrinking the panel to 1x1. The old Size=1,1 hack
-            // exposed the light form background for a frame (a white flash on both monitors).
-            // DocumentStyle's own setter already suspends/resumes layout; PerformLayout here is
-            // enough and does not repaint the whole window on a light background.
-            pnlDock.PerformLayout();
+            ApplyDocumentStyleRelayout(pnlDock, newDocumentStyle);
+        }
+
+        /// <summary>
+        /// Changes the DockPanel document style and forces the re-docking pass DockPanelSuite
+        /// needs to make newly added document tabs visible. Kept internal-static so a smoke test
+        /// can pin the behaviour: replacing Size=1,1 with PerformLayout() made the first tabs in
+        /// a fresh panel invisible until another panel was opened.
+        /// </summary>
+        internal static void ApplyDocumentStyleRelayout(DockPanel panel, DocumentStyle style)
+        {
+            if (panel.DocumentStyle == style)
+                return;
+
+            panel.DocumentStyle = style;
+            // The Size=1,1 assignment is intentional: DockPanelSuite re-docks its document
+            // windows on the resulting layout pass. PerformLayout() alone does not do that.
+            panel.Size = new Size(1, 1);
         }
 
         public void SetDefaultLayout()
