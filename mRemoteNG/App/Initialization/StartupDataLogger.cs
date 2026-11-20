@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Management;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Windows.Forms;
@@ -33,57 +32,15 @@ namespace mRemoteNG.App.Initialization
 
         private string GetOperatingSystemData()
         {
-            string osVersion = string.Empty;
-            string servicePack = string.Empty;
-
-            try
-            {
-                foreach (ManagementBaseObject o in new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem WHERE Primary=True")
-                    .Get())
-                {
-                    ManagementObject managementObject = (ManagementObject)o;
-                    osVersion = Convert.ToString(managementObject.GetPropertyValue("Caption"))?.Trim() ?? string.Empty;
-                    servicePack = GetOSServicePack(servicePack, managementObject);
-                }
-            }
-            catch (Exception ex)
-            {
-                _messageCollector.AddExceptionMessage("Error retrieving operating system information from WMI.", ex);
-            }
-
-            string osData = string.Join(" ", osVersion, servicePack);
-            return osData;
-        }
-
-        private string GetOSServicePack(string servicePack, ManagementObject managementObject)
-        {
-            int servicePackNumber = Convert.ToInt32(managementObject.GetPropertyValue("ServicePackMajorVersion"));
-            if (servicePackNumber != 0)
-            {
-                servicePack = $"Service Pack {servicePackNumber}";
-            }
-
-            return servicePack;
+            // WMI (Win32_OperatingSystem) took ~200-300 ms on every start just to log a line.
+            // Environment.OSVersion gives the equivalent information without spawning WMI.
+            return Environment.OSVersion.VersionString.Trim();
         }
 
         private string GetArchitectureData()
         {
-            string architecture = string.Empty;
-            try
-            {
-                foreach (ManagementBaseObject o in new ManagementObjectSearcher("SELECT AddressWidth FROM Win32_Processor WHERE DeviceID=\'CPU0\'").Get())
-                {
-                    ManagementObject managementObject = (ManagementObject)o;
-                    int addressWidth = Convert.ToInt32(managementObject.GetPropertyValue("AddressWidth"));
-                    architecture = $"{addressWidth}-bit";
-                }
-            }
-            catch (Exception ex)
-            {
-                _messageCollector.AddExceptionMessage("Error retrieving operating system address width from WMI.", ex);
-            }
-
-            return architecture;
+            // WMI (Win32_Processor AddressWidth) was another ~100-200 ms; this is instantaneous.
+            return Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit";
         }
 
         private void LogApplicationData()

@@ -87,10 +87,6 @@ namespace mRemoteNG.UI.Window
 
         private void LoadOptionsForm()
         {
-            // Check if FrmMain.OptionsForm is disposed (source of truth)
-            if (FrmMain.OptionsForm != null && FrmMain.OptionsForm.IsDisposed)
-                FrmMain.RecreateOptionsForm();
-
             // If the local reference is disposed, clean up
             if (_optionsForm != null && _optionsForm.IsDisposed)
             {
@@ -100,10 +96,11 @@ namespace mRemoteNG.UI.Window
                 _optionsForm = null;
             }
 
-            // Get fresh reference if needed
+            // Get fresh reference if needed. FrmOptions is built lazily on first open
+            // (it used to be constructed at every startup, costing ~7 s).
             if (_optionsForm == null)
             {
-                _optionsForm = FrmMain.OptionsForm;
+                _optionsForm = FrmMain.EnsureOptionsForm();
 
                 if (_optionsForm == null || _optionsForm.IsDisposed)
                     return;

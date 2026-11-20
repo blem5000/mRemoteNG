@@ -17,27 +17,28 @@ namespace mRemoteNG.Tools
 
         private static void SetBrowserFeatureControlKey(string feature, string appName, uint value)
         {
-            if (Environment.Is64BitOperatingSystem)
-            {
-                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
-                                                                   string
-                                                                       .Concat("Software\\Wow6432Node\\Microsoft\\Internet Explorer\\Main\\FeatureControl\\",
-                                                                               feature),
-                                                                   RegistryKeyPermissionCheck.ReadWriteSubTree))
-                {
-                    key?.SetValue(appName, value, RegistryValueKind.DWord);
-                }
-            }
+            // Only write when the value actually differs. CreateSubKey + SetValue for ~24 keys on
+            // every startup was pure registry churn once the keys already hold the right value.
+            SetBrowserFeatureControlKey(
+                string.Concat("Software\\Wow6432Node\\Microsoft\\Internet Explorer\\Main\\FeatureControl\\", feature),
+                appName, value, Environment.Is64BitOperatingSystem);
+            SetBrowserFeatureControlKey(
+                string.Concat("Software\\Microsoft\\Internet Explorer\\Main\\FeatureControl\\", feature),
+                appName, value, true);
+        }
 
+        private static void SetBrowserFeatureControlKey(string subKey, string appName, uint value, bool write)
+        {
+            if (!write)
+                return;
 
-            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
-                                                               string
-                                                                   .Concat("Software\\Microsoft\\Internet Explorer\\Main\\FeatureControl\\",
-                                                                           feature),
-                                                               RegistryKeyPermissionCheck.ReadWriteSubTree))
-            {
-                key?.SetValue(appName, value, RegistryValueKind.DWord);
-            }
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(subKey, true);
+            // Already set to the desired value - nothing to do.
+            if (key?.GetValue(appName) is int existing && existing == (int)value)
+                return;
+
+            using RegistryKey createKey = Registry.CurrentUser.CreateSubKey(subKey, RegistryKeyPermissionCheck.ReadWriteSubTree);
+            createKey?.SetValue(appName, value, RegistryValueKind.DWord);
         }
 
 #if PORTABLE

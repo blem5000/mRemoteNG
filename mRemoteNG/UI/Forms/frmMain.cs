@@ -104,6 +104,18 @@ namespace mRemoteNG.UI.Forms
         public static FrmOptions OptionsForm;
 
         /// <summary>
+        /// Returns the shared OptionsForm, creating it on first use. Building FrmOptions loads
+        /// every options page and took ~7 s at startup, so it is now created lazily when the
+        /// user actually opens Options instead of on every launch.
+        /// </summary>
+        public static FrmOptions EnsureOptionsForm()
+        {
+            if (OptionsForm == null || OptionsForm.IsDisposed)
+                RecreateOptionsForm();
+            return OptionsForm;
+        }
+
+        /// <summary>
         /// Recreates the OptionsForm if it has been disposed.
         /// This method should be called when OptionsForm is in an invalid state.
         /// </summary>
@@ -267,7 +279,7 @@ namespace mRemoteNG.UI.Forms
             MessageCollectorSetup.BuildMessageWritersFromSettings(_messageWriters);
             _ = AppWindows.ErrorsForm.lvErrorCollector.Handle;
             MessageCollectorSetup.WriteCollectedMessages(messageCollector, _messageWriters);
- 
+
             Startup.Instance.InitializeProgram(messageCollector);
             Runtime.PluginService.LoadPlugins();
  
@@ -328,7 +340,8 @@ namespace mRemoteNG.UI.Forms
                 Fullscreen.Value = true;
             }
 
-            OptionsForm = new FrmOptions();
+            // FrmOptions is now created lazily on first open (EnsureOptionsForm) — building all
+            // its pages synchronously here cost ~7 s on every startup.
 
             // Do not create the default "General" panel unconditionally: the user can disable
             // empty panels on startup (the default). A panel is created on demand when a
