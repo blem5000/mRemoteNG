@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Runtime.Versioning;
 using System.Text;
+using mRemoteNG.Tools;
 
 namespace mRemoteNG.App.Update
 {
@@ -37,7 +38,31 @@ namespace mRemoteNG.App.Update
 
             string stagingDirectory = Path.Combine(UpdateRoot, "staging-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(stagingDirectory);
-            ZipFile.ExtractToDirectory(updateFilePath, stagingDirectory);
+            try
+            {
+                ZipFile.ExtractToDirectory(updateFilePath, stagingDirectory);
+
+                // Verify the authenticity of the downloaded executable against our pinned
+                // certificate thumbprint BEFORE copying it over the installation and running it.
+                // The SHA-256 digest alone cannot protect against a tampered release API response.
+                string stagedExe = Path.Combine(stagingDirectory, "mRemoteNG.exe");
+                if (!File.Exists(stagedExe))
+                    throw new InvalidOperationException("The update archive does not contain mRemoteNG.exe.");
+
+                Authenticode authenticode = new(stagedExe)
+                {
+                    ThumbprintToMatch = ForkUpdateChannel.ReleaseSigningThumbprint
+                };
+                Authenticode.StatusValue status = authenticode.VerifyThumbprintOnly();
+                if (status != Authenticode.StatusValue.Verified)
+                    throw new InvalidOperationException(
+                        $"Update signature verification failed: {authenticode.GetStatusMessage()}");
+            }
+            catch
+            {
+                Directory.Delete(stagingDirectory, true);
+                throw;
+            }
 
             string targetDirectory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
             string executablePath = Path.Combine(targetDirectory, "mRemoteNG.exe");

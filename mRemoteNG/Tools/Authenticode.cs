@@ -20,6 +20,48 @@ namespace mRemoteNG.Tools
     [SupportedOSPlatform("windows")]
     public class Authenticode(string filePath)
     {
+        /// <summary>
+        /// Verifies only that the file is signed with a certificate whose SHA-1 thumbprint equals
+        /// <see cref="ThumbprintToMatch"/>. Unlike <see cref="Verify()"/> this does not require
+        /// Windows to trust the certificate chain, so it works with our own self-signed release
+        /// certificate. It still proves the bytes were signed with the expected private key.
+        /// </summary>
+        public StatusValue VerifyThumbprintOnly()
+        {
+            try
+            {
+                FileInfo fileInfo = new(FilePath);
+                if (!fileInfo.Exists)
+                    return Status = StatusValue.FileNotExist;
+                if (fileInfo.Length == 0)
+                    return Status = StatusValue.FileEmpty;
+                if (string.IsNullOrEmpty(ThumbprintToMatch))
+                    return Status = StatusValue.NoThumbprintToMatch;
+
+#pragma warning disable SYSLIB0057
+                using X509Certificate cert = X509Certificate.CreateFromSignedFile(FilePath);
+#pragma warning restore SYSLIB0057
+                if (cert == null)
+                    return Status = StatusValue.NoSignature;
+
+                X509Certificate2 certificate2 = X509CertificateLoader.LoadCertificate(cert.GetRawCertData());
+                _thumbprint = certificate2.Thumbprint;
+                Status = string.Equals(_thumbprint, ThumbprintToMatch, StringComparison.OrdinalIgnoreCase)
+                    ? StatusValue.Verified
+                    : StatusValue.ThumbprintNotMatch;
+                return Status;
+            }
+            catch (CryptographicException)
+            {
+                return Status = StatusValue.NoSignature;
+            }
+            catch (Exception ex)
+            {
+                Exception = ex;
+                return Status = StatusValue.UnhandledException;
+            }
+        }
+
         public StatusValue Verify()
 		{
             IntPtr trustFileInfoPointer = default(IntPtr);

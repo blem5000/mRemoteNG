@@ -35,6 +35,13 @@ namespace mRemoteNG.App.Update
         public const string SelfContainedAssetSuffix = "-x64-selfcontained.zip";
 
         /// <summary>
+        /// SHA-1 thumbprint of the code-signing certificate used for official releases. The
+        /// updater verifies the downloaded mRemoteNG.exe against this pin before installing,
+        /// independently of the checksum/URL fetched from the same API response.
+        /// </summary>
+        public const string ReleaseSigningThumbprint = "30E9AA926B036B2B81C80E5D0447347C21BC812D";
+
+        /// <summary>
         /// True when the app runs on the runtime bundled next to mRemoteNG.exe.
         /// </summary>
         public static bool IsSelfContainedBuild =>
