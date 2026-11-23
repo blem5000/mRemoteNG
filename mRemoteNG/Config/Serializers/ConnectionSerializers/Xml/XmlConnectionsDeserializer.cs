@@ -13,6 +13,7 @@ using mRemoteNG.Connection.Protocol.Terminal;
 using mRemoteNG.Connection.Protocol.VNC;
 using mRemoteNG.Container;
 using mRemoteNG.Messages;
+using mRemoteNG.Security.KeyDerivation;
 using mRemoteNG.Plugins;
 using mRemoteNG.Security;
 using mRemoteNG.Tools;
@@ -155,7 +156,8 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             {
                 BlockCipherEngines engine = connectionsRootElement.GetAttributeAsEnum<BlockCipherEngines>("EncryptionEngine");
                 BlockCipherModes mode = connectionsRootElement.GetAttributeAsEnum<BlockCipherModes>("BlockCipherMode");
-                int keyDerivationIterations = connectionsRootElement.GetAttributeAsInt("KdfIterations");
+                int keyDerivationIterations = Pkcs5S2KeyGenerator.ClampIterations(
+                    connectionsRootElement.GetAttributeAsInt("KdfIterations"));
 
                 _decryptor = new XmlConnectionsDecryptor(engine, mode, rootNodeInfo)
                 {

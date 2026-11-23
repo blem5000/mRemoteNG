@@ -133,7 +133,16 @@ namespace mRemoteNG.App.Update
 
             string updateDirectory = Path.Combine(Path.GetTempPath(), "mRemoteNG", "updates");
             Directory.CreateDirectory(updateDirectory);
-            string updateFilePath = Path.Combine(updateDirectory, CurrentUpdateInfo.FileName);
+            // FileName comes from the GitHub API (asset name). Never trust it as a path: strip
+            // any directory component so a malicious/compromised response cannot write outside
+            // the update directory via "../" or an absolute path.
+            string safeFileName = Path.GetFileName(CurrentUpdateInfo.FileName);
+            if (string.IsNullOrWhiteSpace(safeFileName) ||
+                safeFileName.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0)
+            {
+                throw new InvalidOperationException("Invalid update file name received from the update server.");
+            }
+            string updateFilePath = Path.Combine(updateDirectory, safeFileName);
 
             try
             {

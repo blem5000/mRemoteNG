@@ -87,5 +87,21 @@ namespace mRemoteNGTests.Security.KeyDerivation
             var key = keyDerivationFunction.DeriveKey("", new byte[0]);
             Assert.That(key.Length, Is.EqualTo(keyBitSize / 8));
         }
+
+        [TestCase(0)]
+        [TestCase(999)]
+        [TestCase(int.MaxValue)]
+        public void ClampIterations_FallsBackToDefaultForOutOfRangeValues(int iterations)
+        {
+            Assert.That(Pkcs5S2KeyGenerator.ClampIterations(iterations),
+                        Is.EqualTo(Pkcs5S2KeyGenerator.DefaultIterations),
+                        "Out-of-range KdfIterations from an untrusted file must not drive PBKDF2");
+        }
+
+        [Test]
+        public void ClampIterations_KeepsValidValue()
+        {
+            Assert.That(Pkcs5S2KeyGenerator.ClampIterations(5000), Is.EqualTo(5000));
+        }
     }
 }

@@ -72,6 +72,10 @@ namespace mRemoteNG.App.Update
 
                         if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri downloadAddress))
                             continue;
+                        // Only accept HTTPS download URLs from the API. Without this a tampered
+                        // response could point the updater at a plain HTTP endpoint.
+                        if (!string.Equals(downloadAddress.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                            continue;
 
                         return UpdateInfo.FromGitHubRelease(tag, version, assetName, downloadAddress, changeLog,
                                                             ReadChecksum(asset));

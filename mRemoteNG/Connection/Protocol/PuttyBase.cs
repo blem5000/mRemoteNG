@@ -503,7 +503,8 @@ namespace mRemoteNG.Connection.Protocol
                             }
                             catch (ExternalConnectors.OP.OnePasswordCliException ex)
                             {
-                                Runtime.MessageCollector.AddMessage(MessageClass.InformationMsg, Language.ECPOnePasswordCommandLine + ": " + ex.Arguments);
+                                // Do not log ex.Arguments: the op command line contains account
+                                // and vault names, which are authentication metadata.
                                 Runtime.MessageCollector.AddMessage(MessageClass.ErrorMsg, Language.ECPOnePasswordReadFailed + Environment.NewLine + ex.Message);
                             }
                         }

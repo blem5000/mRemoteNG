@@ -85,12 +85,12 @@ namespace mRemoteNG.App.Update
                           if ($process) { $null = $process.WaitForExit(180000) }
                           Start-Sleep -Milliseconds 1000
 
-                          Write-Log "Copying update from {{stagingDirectory}} to {{targetDirectory}}"
+                          Write-Log ("Copying update from " + {{Quote(stagingDirectory)}} + " to " + {{Quote(targetDirectory)}})
                           Get-ChildItem -LiteralPath {{Quote(stagingDirectory)}} -Force | ForEach-Object {
                               Copy-Item -LiteralPath $_.FullName -Destination {{Quote(targetDirectory)}} -Recurse -Force
                           }
 
-                          Write-Log "Starting {{executablePath}}"
+                          Write-Log ("Starting " + {{Quote(executablePath)}})
                           Start-Process -FilePath {{Quote(executablePath)}}
                           Write-Log "Update applied"
                       } catch {

@@ -67,7 +67,10 @@ namespace mRemoteNG.Config.DatabaseConnectors
                 Password = _dbPassword,
                 IntegratedSecurity = false,
                 Encrypt = true,
-                TrustServerCertificate = true,
+                // Trusting any server certificate allowed a MITM to terminate TLS and steal the SQL
+                // credentials. Verification is now the default; self-signed servers can be opted
+                // into explicitly via the setting.
+                TrustServerCertificate = mRemoteNG.Properties.OptionsDBsPage.Default.SQLTrustServerCertificate,
                 ConnectTimeout = 30,
                 MultipleActiveResultSets = true
             }.ToString();
@@ -79,7 +82,9 @@ namespace mRemoteNG.Config.DatabaseConnectors
             {
                 DataSource = _dbHost,
                 InitialCatalog = _dbCatalog,
-                IntegratedSecurity = true
+                IntegratedSecurity = true,
+                Encrypt = true,
+                TrustServerCertificate = mRemoteNG.Properties.OptionsDBsPage.Default.SQLTrustServerCertificate
             }.ToString();
         }
 

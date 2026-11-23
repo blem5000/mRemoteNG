@@ -40,15 +40,29 @@ namespace mRemoteNG.App.Update
             {
                 BuildTag = buildTag,
                 Version = version,
-                FileName = fileName,
+                FileName = System.IO.Path.GetFileName(fileName ?? string.Empty),
                 DownloadAddress = downloadAddress,
                 ChangeLogAddress = downloadAddress,
                 ChangeLog = changeLog ?? string.Empty,
                 Checksum = checksum ?? string.Empty,
-                IsValid = version != null && !string.IsNullOrEmpty(fileName) && downloadAddress != null
+                // Fail closed: an asset without a well-formed SHA-256 digest must not be accepted,
+                // otherwise the updater silently skips checksum verification and executes an
+                // unverified zip (UpdateInstaller).
+                IsValid = version != null && !string.IsNullOrEmpty(fileName) && downloadAddress != null &&
+                          IsSha256Hex(checksum)
             };
 
             return newInfo;
+        }
+
+        private static bool IsSha256Hex(string? value)
+        {
+            if (value == null || value.Length != 64)
+                return false;
+            foreach (char c in value)
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                    return false;
+            return true;
         }
 
         public static UpdateInfo FromString(string input)

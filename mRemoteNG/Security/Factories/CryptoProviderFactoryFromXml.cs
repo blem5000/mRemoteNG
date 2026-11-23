@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.Versioning;
 using System.Xml.Linq;
+using mRemoteNG.Security.KeyDerivation;
 using mRemoteNG.Security.SymmetricEncryption;
 
 namespace mRemoteNG.Security.Factories
@@ -29,7 +30,8 @@ namespace mRemoteNG.Security.Factories
                                                         _element?.Attribute("BlockCipherMode")?.Value ?? "");
                 cryptoProvider = new CryptoProviderFactory(engine, mode).Build();
 
-                int keyDerivationIterations = int.Parse(_element?.Attribute("KdfIterations")?.Value ?? "");
+                int keyDerivationIterations = Pkcs5S2KeyGenerator.ClampIterations(
+                    int.Parse(_element?.Attribute("KdfIterations")?.Value ?? ""));
                 cryptoProvider.KeyDerivationIterations = keyDerivationIterations;
             }
             catch (Exception)
