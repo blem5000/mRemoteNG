@@ -92,6 +92,13 @@ public class OnePasswordCli
 
 	private static void ItemGet(string item, string? vault, string? account, out string username, out string password, out string domain, out string privateKey)
     {
+        // item/vault/account come from an op:// reference in the connection file, which may be
+        // imported from an untrusted source. A value starting with '-' would be parsed by the op
+        // CLI as a flag (e.g. "--debug") instead of the item name, changing its behaviour.
+        RejectOptionLikeValue(item, nameof(item));
+        RejectOptionLikeValue(vault, nameof(vault));
+        RejectOptionLikeValue(account, nameof(account));
+
         var args = new List<string> { "item", "get", item };
 
         if (!string.IsNullOrEmpty(account))
@@ -118,8 +125,10 @@ public class OnePasswordCli
             password = string.Empty;
             privateKey = string.Empty;
             domain = string.Empty;
-            throw new OnePasswordCliException($"Error running op item get: {error}",
-                commandLine);
+            // op's stderr often names the item/vault/account. Keep it in Arguments (not logged by
+            // callers) and use a generic Message so authentication metadata never reaches the log.
+            throw new OnePasswordCliException("Error running op item get (see diagnostics)",
+                commandLine + Environment.NewLine + error);
         }
 
         var items = JsonSerializer.Deserialize<VaultItem>(output, JsonSerializerOptions) ??
@@ -133,6 +142,15 @@ public class OnePasswordCli
 		{
 			throw new OnePasswordCliException("No secret found in 1Password. At least fields with labels username/password or a SshKey are expected.", commandLine);
 		}
+    }
+
+    /// <summary>
+    /// Rejects an op:// component that the op CLI would read as an option rather than a value.
+    /// </summary>
+    private static void RejectOptionLikeValue(string? value, string name)
+    {
+        if (!string.IsNullOrEmpty(value) && value.StartsWith('-'))
+            throw new OnePasswordCliException($"Invalid 1Password reference: {name} starts with '-'", string.Empty);
     }
 
     private static string FindField(VaultItem items, string purpose, string fallbackLabel)
@@ -152,7 +170,11 @@ public class OnePasswordCli
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,
-			CreateNoWindow = true
+			CreateNoWindow = true,
+			// Windows resolves a bare executable name using the application directory and the
+			// current working directory before PATH. Pin the working directory so a fake op.exe
+			// dropped next to a portable mRemoteNG cannot be picked up instead of the real CLI.
+			WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System)
 		};
 
 		foreach (var argument in arguments)

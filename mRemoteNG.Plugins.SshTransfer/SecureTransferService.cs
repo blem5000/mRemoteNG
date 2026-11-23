@@ -42,7 +42,10 @@ internal sealed class SecureTransferService : IDisposable
     {
         if (Protocol == SshTransferProtocol.Scp)
         {
-            ScpClient = new ScpClient(_host, _port, _user, _password);
+            // Quote remote paths for the remote shell. The obsolete constructor defaults to
+            // DoubleQuote, which does not neutralize $(...) / backticks - the same bug the main
+            // application already fixed in Tools/SecureTransfer.cs.
+            ScpClient = new ScpClient(_host, _port, _user, _password, RemotePathTransformation.ShellQuote);
             ScpClient.Connect();
             return;
         }

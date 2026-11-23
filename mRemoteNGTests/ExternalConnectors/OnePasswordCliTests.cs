@@ -48,6 +48,18 @@ public class OnePasswordCliTests
     }
 
     [Test]
+    public void OptionLikeReferenceComponentsAreRejected()
+    {
+        var method = typeof(OnePasswordCli).GetMethod("RejectOptionLikeValue",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null, "RejectOptionLikeValue must exist");
+
+        Assert.DoesNotThrow(() => method.Invoke(null, ["normal-item", "item"]));
+        Assert.Throws<System.Reflection.TargetInvocationException>(() => method.Invoke(null, ["--debug", "item"]),
+            "An op:// component starting with '-' would be parsed by op as a flag");
+    }
+
+    [Test]
     public async Task ReadAheadThrowsWhatTheReadThrows()
     {
         OnePasswordRead readAhead = await OnePasswordCli.ReadPasswordAsync(NotAReference);

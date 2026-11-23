@@ -57,6 +57,8 @@
             this.tbAccesKey.Name = "tbAccesKey";
             this.tbAccesKey.Size = new System.Drawing.Size(490, 23);
             this.tbAccesKey.TabIndex = 2;
+            // AWS secret access key - never show it on screen while it is entered.
+            this.tbAccesKey.UseSystemPasswordChar = true;
             // 
             // btnOK
             // 

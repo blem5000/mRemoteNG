@@ -21,7 +21,15 @@ namespace ExternalConnectors.VO {
             _ = voForm.ShowDialog();
             if (voForm.DialogResult != DialogResult.OK)
                 throw new VaultOpenbaoException($"No credential provided");
-            url = voForm.tbUrl.Text;
+            string newUrl = voForm.tbUrl.Text ?? string.Empty;
+            // Never send the cached Vault token to a different (or plain HTTP) endpoint: an
+            // attacker-controlled URL would receive the X-Vault-Token header.
+            if (!string.Equals(newUrl, url, StringComparison.OrdinalIgnoreCase))
+                token = string.Empty; // URL changed - require the token to be entered again
+            if (!Uri.TryCreate(newUrl, UriKind.Absolute, out Uri? parsed) ||
+                !string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                throw new VaultOpenbaoException("Vault URL must be an absolute HTTPS address");
+            url = newUrl;
             if (!string.IsNullOrEmpty(voForm.tbToken.Text)) // override token if provided
                 token = voForm.tbToken.Text;
             IAuthMethodInfo authMethod = new TokenAuthMethodInfo(token);
