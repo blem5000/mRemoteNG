@@ -29,7 +29,7 @@ namespace mRemoteNG.App.Update
         /// Release tag this build was produced from. Bump it together with every release so the
         /// updater can tell "same version, newer build" apart from "newer version".
         /// </summary>
-        public const string BuildTag = "20261123h-v1.78.2-NB";
+        public const string BuildTag = "20261123i-v1.78.2-NB";
 
         public const string FrameworkDependentAssetSuffix = "-x64.zip";
         public const string SelfContainedAssetSuffix = "-x64-selfcontained.zip";
