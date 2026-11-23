@@ -32,7 +32,8 @@ namespace mRemoteNGTests.Tools
         public void SignedReleaseExecutable_MatchesPinnedThumbprint()
         {
             // The Release build is signed with our local self-signed release certificate during
-            // packaging. When present, VerifyThumbprintOnly must accept it (without WinVerifyTrust).
+            // packaging. When present, VerifyThumbprintOnly must accept its valid signature even
+            // though the chain is untrusted.
             string exe = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "mRemoteNG", "bin", "x64", "Release", "mRemoteNG.exe");
             exe = Path.GetFullPath(exe);
             if (!File.Exists(exe))
@@ -44,6 +45,38 @@ namespace mRemoteNGTests.Tools
             };
             Assert.That(auth.VerifyThumbprintOnly(), Is.EqualTo(Authenticode.StatusValue.Verified),
                         "A signed release must pass the pinned thumbprint check");
+        }
+
+        [Test]
+        public void TamperedSignedExecutable_IsRejected()
+        {
+            // SigThief-style attack: the certificate blob alone must not be enough. Flipping a
+            // byte in the DOS header changes the signed digest while leaving the embedded
+            // certificate (and therefore its thumbprint) intact. WinVerifyTrust must catch this.
+            string exe = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "mRemoteNG", "bin", "x64", "Release", "mRemoteNG.exe");
+            exe = Path.GetFullPath(exe);
+            if (!File.Exists(exe))
+                Assert.Ignore("Release build not available in this environment");
+
+            string tampered = Path.Combine(Path.GetTempPath(), "mremoteng-tampered-" + Guid.NewGuid().ToString("N") + ".exe");
+            File.Copy(exe, tampered);
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(tampered);
+                bytes[0x02] ^= 0x01; // e_cblp: covered by the Authenticode hash, ignored by the loader
+                File.WriteAllBytes(tampered, bytes);
+
+                Authenticode auth = new(tampered)
+                {
+                    ThumbprintToMatch = "30E9AA926B036B2B81C80E5D0447347C21BC812D"
+                };
+                Assert.That(auth.VerifyThumbprintOnly(), Is.Not.EqualTo(Authenticode.StatusValue.Verified),
+                            "A file with a broken signed digest must be rejected even though its certificate thumbprint matches");
+            }
+            finally
+            {
+                File.Delete(tampered);
+            }
         }
 
         [Test]

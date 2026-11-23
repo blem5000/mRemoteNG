@@ -225,7 +225,13 @@ public sealed class PluginService
         _plugins.Sort(ComparePlugins);
     }
 
-    private static bool IsSignedByReleaseCertificate(string path)
+    /// <summary>
+    /// Returns true only when the file's Authenticode signature is valid and signed with our
+    /// release certificate. Used both for plugin assemblies and for assemblies resolved from
+    /// the Plugins\ folder. Deliberately does not touch App.Runtime: it may be called from the
+    /// assembly-resolve handler before the runtime is fully initialised.
+    /// </summary>
+    internal static bool IsSignedByReleaseCertificate(string path)
     {
         try
         {
@@ -241,10 +247,8 @@ public sealed class PluginService
             return authenticode.VerifyThumbprintOnly() == Authenticode.StatusValue.Verified;
 #endif
         }
-        catch (Exception ex)
+        catch
         {
-            App.Runtime.MessageCollector?.AddExceptionMessage(
-                $"Could not verify plugin signature '{path}'.", ex);
             return false;
         }
     }

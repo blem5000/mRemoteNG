@@ -4,6 +4,7 @@ using mRemoteNG.App.Initialization;
 using mRemoteNG.App.Update;
 using mRemoteNG.Config.Settings;
 using mRemoteNG.Messages;
+using mRemoteNG.Plugins;
 using mRemoteNG.Themes;
 using mRemoteNG.UI.Forms;
 using mRemoteNG.Resources.Language;
@@ -188,7 +189,15 @@ namespace mRemoteNG.App
                 // that are deployed alongside the plugin DLLs instead of under Assemblies\.
                 string pluginsAssemblyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins", assemblyFile);
                 if (File.Exists(pluginsAssemblyPath))
+                {
+                    // A signed plugin may reference a helper DLL of the same name. Without this
+                    // check an attacker with write access to Plugins\ could substitute that helper
+                    // and have its code executed even though the plugin itself is signed.
+                    if (Properties.Settings.Default.RequireSignedPlugins &&
+                        !PluginService.IsSignedByReleaseCertificate(pluginsAssemblyPath))
+                        return null;
                     return Assembly.LoadFrom(pluginsAssemblyPath);
+                }
             }
             catch
             {

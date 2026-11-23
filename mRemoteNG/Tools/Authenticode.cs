@@ -21,13 +21,18 @@ namespace mRemoteNG.Tools
     public class Authenticode(string filePath)
     {
         /// <summary>
-        /// Verifies only that the file is signed with a certificate whose SHA-1 thumbprint equals
-        /// <see cref="ThumbprintToMatch"/>. Unlike <see cref="Verify()"/> this does not require
-        /// Windows to trust the certificate chain, so it works with our own self-signed release
-        /// certificate. It still proves the bytes were signed with the expected private key.
+        /// Verifies that the file's Authenticode signature is structurally valid (WinVerifyTrust
+        /// checks the signed digest, so a transplanted certificate blob cannot pass) and that the
+        /// signer certificate matches <see cref="ThumbprintToMatch"/>.
+        ///
+        /// Unlike <see cref="Verify()"/>, an untrusted chain is accepted: our releases use a
+        /// self-signed certificate. Only the two specific "chain not trusted" result codes are
+        /// tolerated; a bad digest, missing/invalid signature or any other failure is rejected.
         /// </summary>
         public StatusValue VerifyThumbprintOnly()
         {
+            IntPtr trustFileInfoPointer = default;
+            IntPtr trustDataPointer = default;
             try
             {
                 FileInfo fileInfo = new(FilePath);
@@ -37,6 +42,46 @@ namespace mRemoteNG.Tools
                     return Status = StatusValue.FileEmpty;
                 if (string.IsNullOrEmpty(ThumbprintToMatch))
                     return Status = StatusValue.NoThumbprintToMatch;
+
+                NativeMethods.WINTRUST_FILE_INFO trustFileInfo = new() { pcwszFilePath = FilePath };
+                trustFileInfoPointer = Marshal.AllocCoTaskMem(Marshal.SizeOf(trustFileInfo));
+                Marshal.StructureToPtr(trustFileInfo, trustFileInfoPointer, false);
+
+                NativeMethods.WINTRUST_DATA trustData = new()
+                {
+                    dwUIChoice = (uint)DisplayValue.None,
+                    fdwRevocationChecks = NativeMethods.WTD_REVOKE_NONE,
+                    dwUnionChoice = NativeMethods.WTD_CHOICE_FILE,
+                    pFile = trustFileInfoPointer,
+                    dwStateAction = NativeMethods.WTD_STATEACTION_IGNORE,
+                    dwProvFlags = NativeMethods.WTD_DISABLE_MD2_MD4,
+                    dwUIContext = (uint)DisplayContextValue.Execute
+                };
+                trustDataPointer = Marshal.AllocCoTaskMem(Marshal.SizeOf(trustData));
+                Marshal.StructureToPtr(trustData, trustDataPointer, false);
+
+                _trustProviderErrorCode = NativeMethods.WinVerifyTrust(
+                    IntPtr.Zero, NativeMethods.WINTRUST_ACTION_GENERIC_VERIFY_V2, trustDataPointer);
+
+                // WinVerifyTrust validates the digest and the signature before returning a trust
+                // error. Only accept a valid signature whose chain we intentionally do not trust.
+                // None of the codes below indicate a bad digest - that is TRUST_E_BAD_DIGEST and
+                // is deliberately absent, so a tampered file can never reach the thumbprint check.
+                bool signatureValidButChainUntrusted =
+                    _trustProviderErrorCode == NativeMethods.TRUST_E_SUBJECT_NOT_TRUSTED ||
+                    _trustProviderErrorCode == NativeMethods.CERT_E_UNTRUSTEDROOT ||
+                    _trustProviderErrorCode == NativeMethods.CERT_E_CHAINING ||
+                    _trustProviderErrorCode == NativeMethods.CERT_E_EXPIRED ||
+                    _trustProviderErrorCode == NativeMethods.CERT_E_WRONG_USAGE ||
+                    _trustProviderErrorCode == NativeMethods.CERT_E_REVOCATION_FAILURE ||
+                    _trustProviderErrorCode == NativeMethods.TRUST_E_TIME_STAMP;
+                if (_trustProviderErrorCode != 0 && !signatureValidButChainUntrusted)
+                {
+                    Status = _trustProviderErrorCode == NativeMethods.TRUST_E_NOSIGNATURE
+                        ? StatusValue.NoSignature
+                        : StatusValue.TrustProviderError;
+                    return Status;
+                }
 
 #pragma warning disable SYSLIB0057
                 using X509Certificate cert = X509Certificate.CreateFromSignedFile(FilePath);
@@ -59,6 +104,13 @@ namespace mRemoteNG.Tools
             {
                 Exception = ex;
                 return Status = StatusValue.UnhandledException;
+            }
+            finally
+            {
+                if (trustDataPointer != IntPtr.Zero)
+                    Marshal.FreeCoTaskMem(trustDataPointer);
+                if (trustFileInfoPointer != IntPtr.Zero)
+                    Marshal.FreeCoTaskMem(trustFileInfoPointer);
             }
         }
 
@@ -307,12 +359,19 @@ namespace mRemoteNG.Tools
 				
 			public const int TRUST_E_SUBJECT_NOT_TRUSTED = unchecked ((int) 0x800B0004);
 			public const int TRUST_E_NOSIGNATURE = unchecked ((int) 0x800B0100);
+			public const int TRUST_E_TIME_STAMP = unchecked ((int) 0x800B00D4);
+			public const int CERT_E_EXPIRED = unchecked ((int) 0x800B0101);
+			public const int CERT_E_UNTRUSTEDROOT = unchecked ((int) 0x800B0109);
+			public const int CERT_E_CHAINING = unchecked ((int) 0x800B010A);
+			public const int CERT_E_REVOCATION_FAILURE = unchecked ((int) 0x800B010C);
+			public const int CERT_E_WRONG_USAGE = unchecked ((int) 0x800B0110);
 				
 			public static readonly Guid WINTRUST_ACTION_GENERIC_VERIFY_V2 =
  new("{00AAC56B-CD44-11d0-8CC2-00C04FC295EE}");
 				
 			public const uint WTD_CHOICE_FILE = 1;
 			public const uint WTD_DISABLE_MD2_MD4 = 0x2000;
+			public const uint WTD_REVOKE_NONE = 0;
 			public const uint WTD_REVOKE_WHOLECHAIN = 1;
 				
 			public const uint WTD_STATEACTION_IGNORE = 0x0;
