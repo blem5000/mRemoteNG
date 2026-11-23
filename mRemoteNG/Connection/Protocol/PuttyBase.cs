@@ -67,9 +67,27 @@ namespace mRemoteNG.Connection.Protocol
             if (!CanLogOff)
                 return Task.CompletedTask;
 
-            NativeMethods.SetForegroundWindow(PuttyHandle);
-            SendKeys.SendWait("exit\n");
+            // SendKeys targets whatever window has focus. SetForegroundWindow can fail (Windows
+            // restricts it), so verify focus before typing - otherwise "exit" would be sent to an
+            // unrelated application such as an editor or terminal.
+            if (TryFocusForSendKeys())
+                SendKeys.SendWait("exit\n");
+            else
+                Runtime.MessageCollector?.AddMessage(MessageClass.WarningMsg,
+                    "PuTTY log off skipped: could not focus the PuTTY window.", true);
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Brings the embedded PuTTY window to the front and confirms it actually has focus.
+        /// SendKeys must never be used unless this returns true.
+        /// </summary>
+        private bool TryFocusForSendKeys()
+        {
+            if (PuttyHandle == IntPtr.Zero)
+                return false;
+            NativeMethods.SetForegroundWindow(PuttyHandle);
+            return NativeMethods.GetForegroundWindow() == PuttyHandle;
         }
 
         #endregion
@@ -746,9 +764,19 @@ namespace mRemoteNG.Connection.Protocol
 
                 if (!string.IsNullOrEmpty(InterfaceControl.Info?.OpeningCommand))
                 {
-                    NativeMethods.SetForegroundWindow(PuttyHandle);
-                    string finalCommand = InterfaceControl.Info.OpeningCommand.TrimEnd() + "\n";
-                    SendKeys.SendWait(finalCommand);
+                    // OpeningCommand comes from the connection file. Only type it into the PuTTY
+                    // window after confirming focus - a failed SetForegroundWindow would send it
+                    // to whichever unrelated window happened to be active.
+                    if (TryFocusForSendKeys())
+                    {
+                        string finalCommand = InterfaceControl.Info.OpeningCommand.TrimEnd() + "\n";
+                        SendKeys.SendWait(finalCommand);
+                    }
+                    else
+                    {
+                        Runtime.MessageCollector?.AddMessage(MessageClass.WarningMsg,
+                            "Opening command skipped: could not focus the PuTTY window.", true);
+                    }
                 }
 
                 Resize(this, new EventArgs());

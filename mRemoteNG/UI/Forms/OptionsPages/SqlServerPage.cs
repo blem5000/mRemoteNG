@@ -113,6 +113,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             txtSQLDatabaseName.Text = Properties.OptionsDBsPage.Default.SQLDatabaseName;
             txtSQLPassword.Text = OptionPasswords.Unprotect(Properties.OptionsDBsPage.Default.SQLPass);
             chkSQLReadOnly.Checked = Properties.OptionsDBsPage.Default.SQLReadOnly;
+            mrngCheckBox5.Checked = Properties.OptionsDBsPage.Default.SQLTrustServerCertificate;
 
             // The authentication type is not stored: an empty user name means Windows authentication
             // (see MSSqlDatabaseConnector). Select it before the user name, which it may overwrite.
@@ -145,6 +146,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
             Properties.OptionsDBsPage.Default.SQLUser = UserNameToSave;
             Properties.OptionsDBsPage.Default.SQLPass = OptionPasswords.Protect(txtSQLPassword.Text);
             Properties.OptionsDBsPage.Default.SQLReadOnly = chkSQLReadOnly.Checked;
+            Properties.OptionsDBsPage.Default.SQLTrustServerCertificate = mrngCheckBox5.Checked;
 
             if (Properties.OptionsDBsPage.Default.UseSQLServer)
                 ReinitializeSqlUpdater();
@@ -170,6 +172,7 @@ namespace mRemoteNG.UI.Forms.OptionsPages
 
             return settings.UseSQLServer != chkUseSQLServer.Checked
                 || settings.SQLReadOnly != chkSQLReadOnly.Checked
+                || settings.SQLTrustServerCertificate != mrngCheckBox5.Checked
                 || (settings.SQLServerType ?? string.Empty) != SelectedServerType
                 || (settings.SQLHost ?? string.Empty) != txtSQLServer.Text
                 || (settings.SQLDatabaseName ?? string.Empty) != txtSQLDatabaseName.Text

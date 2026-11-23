@@ -27,6 +27,18 @@ namespace mRemoteNGTests.Connection.Protocol
         }
 
         [Test]
+        public void TryFocusForSendKeys_FailsWithoutARealWindow()
+        {
+            // SendKeys must never be used unless focus is confirmed. With no PuTTY window the
+            // helper returns false so "exit"/OpeningCommand cannot go to an unrelated window.
+            var protocol = new ProtocolSSH2();
+            var method = typeof(PuttyBase).GetMethod("TryFocusForSendKeys",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, "TryFocusForSendKeys must exist");
+            Assert.That((bool)method.Invoke(protocol, null), Is.False);
+        }
+
+        [Test]
         public void RawAndSerialCannotLogOff()
         {
             // No shell of their own to end: "exit" would just be sent as data.
