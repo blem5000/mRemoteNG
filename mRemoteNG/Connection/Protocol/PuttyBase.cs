@@ -162,6 +162,15 @@ namespace mRemoteNG.Connection.Protocol
             }
         }
 
+        // SSHOptions comes from the connection file, which may be imported from an untrusted
+        // source. These PuTTY switches can execute a local command or write files, so they must
+        // never be passed through from a connection file.
+        private static readonly string[] ForbiddenSshOptionPrefixes =
+        [
+            "-proxycmd", "-nc", "-log", "-sshlog", "-sshrawlog", "-pwfile", "-i",
+            "-L", "-R", "-D", "-m"
+        ];
+
         private static void AddArgumentString(CommandLineArguments arguments, string rawArguments)
         {
             if (string.IsNullOrWhiteSpace(rawArguments))
@@ -176,6 +185,14 @@ namespace mRemoteNG.Connection.Protocol
                 if (token.StartsWith('"') && token.EndsWith('"') || token.StartsWith('\'') && token.EndsWith('\''))
                 {
                     token = token[1..^1];
+                }
+
+                string switchName = token.Split('=', ':')[0];
+                if (ForbiddenSshOptionPrefixes.Any(p => switchName.Equals(p, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Runtime.MessageCollector?.AddMessage(MessageClass.WarningMsg,
+                        $"Ignoring unsafe SSH option '{switchName}' from the connection file.", true);
+                    continue;
                 }
 
                 arguments.Add(token);

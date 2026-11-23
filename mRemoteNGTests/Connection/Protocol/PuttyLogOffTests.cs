@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using mRemoteNG.Connection.Protocol;
 using mRemoteNG.Connection.Protocol.RAW;
 using mRemoteNG.Connection.Protocol.Rlogin;
@@ -24,6 +25,23 @@ namespace mRemoteNGTests.Connection.Protocol
                 protocol.PuttyHandle = SomeWindow;
                 Assert.That(protocol.CanLogOff, Is.True, protocol.GetType().Name);
             }
+        }
+
+        [Test]
+        public void UnsafeSshOptionsFromConnectionFileAreDropped()
+        {
+            var arguments = new mRemoteNG.Tools.Cmdline.CommandLineArguments();
+            var method = typeof(PuttyBase).GetMethod("AddArgumentString",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+
+            method.Invoke(null, [arguments, "-proxycmd calc.exe -L 8080:host:80 -safeoption value"]);
+            var result = arguments.ToArgumentList().ToList();
+
+            Assert.That(result, Does.Not.Contain("-proxycmd"), "-proxycmd can execute a local command");
+            Assert.That(result, Does.Not.Contain("-L"), "-L can forward ports");
+            Assert.That(result, Does.Contain("-safeoption"), "harmless options must still work");
+            Assert.That(result, Does.Contain("value"));
         }
 
         [Test]

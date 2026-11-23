@@ -72,9 +72,13 @@ namespace mRemoteNG.App.Update
 
                         if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri downloadAddress))
                             continue;
-                        // Only accept HTTPS download URLs from the API. Without this a tampered
-                        // response could point the updater at a plain HTTP endpoint.
+                        // Only accept HTTPS URLs on GitHub's own hosts. A tampered release JSON
+                        // could otherwise point the updater at an attacker-controlled download.
                         if (!string.Equals(downloadAddress.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        string host = downloadAddress.Host.ToLowerInvariant();
+                        if (!(host == "github.com" || host.EndsWith(".github.com") ||
+                              host == "githubusercontent.com" || host.EndsWith(".githubusercontent.com")))
                             continue;
 
                         return UpdateInfo.FromGitHubRelease(tag, version, assetName, downloadAddress, changeLog,

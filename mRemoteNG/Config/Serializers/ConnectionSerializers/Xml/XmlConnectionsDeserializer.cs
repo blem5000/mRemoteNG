@@ -42,6 +42,10 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
         // Must match the newest version written by XmlConnectionSerializerFactory,
         // otherwise the app refuses to open files it saved itself
         internal const double MaxSupportedConfVersion = 2.9;
+        // Below 1.4 the file has no Protected authentication marker at all: Deserialize() skips
+        // ConnectionsFileIsAuthentic() for _confVersion <= 1.3. Accepting such a file would let a
+        // crafted import inject connections with no password check.
+        internal const double MinSupportedConfVersion = 1.4;
         private readonly RootNodeInfo _rootNodeInfo = new(RootNodeType.Connection);
         // Ids handed out while reading the current file, to keep each one unique.
         private readonly HashSet<string> _connectionIds = new(StringComparer.Ordinal);
@@ -124,10 +128,18 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Xml
             else
                 Runtime.MessageCollector.AddMessage(MessageClass.WarningMsg, Language.OldConffile);
 
-            if (!(_confVersion > MaxSupportedConfVersion)) return;
+            if (IsSupportedConfVersion(_confVersion)) return;
             ShowIncompatibleVersionDialogBox();
             throw new Exception($"Incompatible connection file format (file format version {_confVersion}).");
         }
+
+        /// <summary>
+        /// Rejects files older than the first version with an authentication marker as well as
+        /// files from the future. Below 1.4 the Protected check is skipped entirely, so accepting
+        /// such a file would allow connection injection without a password.
+        /// </summary>
+        internal static bool IsSupportedConfVersion(double version) =>
+            version >= MinSupportedConfVersion && version <= MaxSupportedConfVersion;
 
         private void ShowIncompatibleVersionDialogBox()
         {

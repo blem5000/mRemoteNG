@@ -19,7 +19,7 @@ public class GitHubReleaseParserTests
             "assets": [
               {
                 "name": "mRemoteNG-1.78.3-fix-20261117-x64.zip",
-                "browser_download_url": "https://example.com/draft.zip"
+                "browser_download_url": "https://github.com/draft.zip"
               }
             ]
           },
@@ -31,12 +31,12 @@ public class GitHubReleaseParserTests
             "assets": [
               {
                 "name": "mRemoteNG-1.78.2-fix-20261116-x64-selfcontained.zip",
-                "browser_download_url": "https://example.com/app-selfcontained.zip",
+                "browser_download_url": "https://github.com/app-selfcontained.zip",
                 "digest": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
               },
               {
                 "name": "mRemoteNG-1.78.2-fix-20261116-x64.zip",
-                "browser_download_url": "https://example.com/app.zip",
+                "browser_download_url": "https://github.com/app.zip",
                 "digest": "sha256:DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF"
               }
             ]
@@ -73,13 +73,13 @@ public class GitHubReleaseParserTests
     {
         UpdateInfo without = UpdateInfo.FromGitHubRelease(
             "20261117-v1.78.2-NB", new Version(1, 78, 2), "app-x64.zip",
-            new Uri("https://example.com/app.zip"), "", string.Empty);
+            new Uri("https://github.com/app.zip"), "", string.Empty);
         Assert.That(without.IsValid, Is.False,
                     "An update without a SHA-256 digest must be rejected (checksum would be skipped)");
 
         UpdateInfo with = UpdateInfo.FromGitHubRelease(
             "20261117-v1.78.2-NB", new Version(1, 78, 2), "app-x64.zip",
-            new Uri("https://example.com/app.zip"), "",
+            new Uri("https://github.com/app.zip"), "",
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
         Assert.That(with.IsValid, Is.True);
     }
@@ -89,7 +89,7 @@ public class GitHubReleaseParserTests
     {
         UpdateInfo info = UpdateInfo.FromGitHubRelease(
             "20261117-v1.78.2-NB", new Version(1, 78, 2),
-            "..\\..\\evil-x64.zip", new Uri("https://example.com/app.zip"), "", "sha256:AABBCC");
+            "..\\..\\evil-x64.zip", new Uri("https://github.com/app.zip"), "", "sha256:AABBCC");
 
         Assert.That(info.FileName, Is.EqualTo("evil-x64.zip"),
                     "A path traversal in the asset name must be reduced to the file name");
@@ -116,7 +116,7 @@ public class GitHubReleaseParserTests
         Assert.That(info.BuildTag, Is.EqualTo("20261116-v1.78.2-NB"));
         Assert.That(info.Version, Is.EqualTo(new Version(1, 78, 2)));
         Assert.That(info.FileName, Is.EqualTo("mRemoteNG-1.78.2-fix-20261116-x64.zip"));
-        Assert.That(info.DownloadAddress, Is.EqualTo(new Uri("https://example.com/app.zip")));
+        Assert.That(info.DownloadAddress, Is.EqualTo(new Uri("https://github.com/app.zip")));
         Assert.That(info.ChangeLog, Is.EqualTo("Polish release notes"));
         Assert.That(info.Checksum, Is.EqualTo("DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF"));
         Assert.That(info.IsValid, Is.True);
@@ -129,7 +129,7 @@ public class GitHubReleaseParserTests
 
         Assert.That(info, Is.Not.Null);
         Assert.That(info.FileName, Is.EqualTo("mRemoteNG-1.78.2-fix-20261116-x64-selfcontained.zip"));
-        Assert.That(info.DownloadAddress, Is.EqualTo(new Uri("https://example.com/app-selfcontained.zip")));
+        Assert.That(info.DownloadAddress, Is.EqualTo(new Uri("https://github.com/app-selfcontained.zip")));
     }
 
     [Test]
@@ -167,7 +167,7 @@ public class GitHubReleaseParserTests
                 "prerelease": true,
                 "body": "",
                 "assets": [
-                  { "name": "mRemoteNG-1.78.3-fix-20261116-x64.zip", "browser_download_url": "https://example.com/pre.zip" }
+                  { "name": "mRemoteNG-1.78.3-fix-20261116-x64.zip", "browser_download_url": "https://github.com/pre.zip" }
                 ]
               }
             ]

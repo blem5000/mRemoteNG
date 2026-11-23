@@ -5,6 +5,16 @@ namespace mRemoteNGTests.Config.Serializers.ConnectionSerializers.Csv;
 
 public class SemicolonSeparatedValuesTests
 {
+    [TestCase("=cmd|'/c calc'!A1", "'=cmd|'/c calc'!A1")]
+    [TestCase("+SUM(1)", "'+SUM(1)")]
+    [TestCase("@SUM(1)", "'@SUM(1)")]
+    [TestCase("-2+3", "'-2+3")]
+    public void FormulaLikeValuesAreNeutralized(string value, string expected)
+    {
+        Assert.That(SemicolonSeparatedValues.Quote(value), Is.EqualTo(expected),
+                    "A leading formula character must be escaped before CSV export");
+    }
+
     [TestCase("plain", "plain")]
     [TestCase("pass;word", "\"pass;word\"")]
     [TestCase("say \"hi\"", "\"say \"\"hi\"\"\"")]

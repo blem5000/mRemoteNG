@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using mRemoteNG.App.Info;
 using mRemoteNG.Properties;
+using mRemoteNG.Security;
 using mRemoteNG.Security.SymmetricEncryption;
 using System.Runtime.Versioning;
 
@@ -63,8 +64,19 @@ namespace mRemoteNG.App.Update
             int port = Properties.OptionsUpdatesPage.Default.UpdateProxyPort;
             bool useAuthentication = Properties.OptionsUpdatesPage.Default.UpdateProxyUseAuthentication;
             string username = Properties.OptionsUpdatesPage.Default.UpdateProxyAuthUser;
-            LegacyRijndaelCryptographyProvider cryptographyProvider = new();
-            string password = cryptographyProvider.Decrypt(Properties.OptionsUpdatesPage.Default.UpdateProxyAuthPass, Runtime.EncryptionKey);
+            // Use the same DPAPI-aware helper as every other consumer of this setting. Decrypting
+            // with the legacy default key throws on a dpapi:-prefixed value and could fail at
+            // startup (AppUpdater is constructed from a static initializer).
+            string password;
+            try
+            {
+                password = OptionPasswords.Unprotect(Properties.OptionsUpdatesPage.Default.UpdateProxyAuthPass);
+            }
+            catch (Exception ex)
+            {
+                Runtime.MessageCollector?.AddExceptionMessage("Could not read the saved proxy password.", ex);
+                password = string.Empty;
+            }
 
             SetProxySettings(shouldWeUseProxy, proxyAddress, port, useAuthentication, username, password);
         }

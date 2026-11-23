@@ -11,9 +11,16 @@ namespace mRemoteNG.Config.Serializers.ConnectionSerializers.Csv
     internal static class SemicolonSeparatedValues
     {
         private static readonly char[] CharactersThatNeedQuotes = [';', '"', '\r', '\n'];
+        // Spreadsheet applications treat a leading one of these as a formula. Connection names,
+        // hostnames and descriptions can come from an imported file, so neutralize them on export.
+        private static readonly char[] FormulaPrefixes = ['=', '+', '-', '@', '\t', '\r'];
 
         public static string Quote(string value)
         {
+            bool needsFormulaGuard = value.Length > 0 && value.IndexOfAny(FormulaPrefixes) == 0;
+            if (needsFormulaGuard)
+                value = "'" + value;
+
             if (value.IndexOfAny(CharactersThatNeedQuotes) < 0)
                 return value;
 

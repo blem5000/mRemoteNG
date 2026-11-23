@@ -13,6 +13,28 @@ namespace mRemoteNGTests.Config.Serializers.ConnectionSerializers.Xml;
 
 public class XmlConnectionsDeserializerTests
 {
+    [TestCase(0.5)]
+    [TestCase(1.3)]
+    public void VersionsWithoutAuthenticationMarkerAreRejected(double version)
+    {
+        // Below 1.4 the Protected marker is not verified, so such a file could inject
+        // connections without a password. IsSupportedConfVersion must reject it.
+        Assert.That(XmlConnectionsDeserializer.IsSupportedConfVersion(version), Is.False);
+    }
+
+    [TestCase(1.4)]
+    [TestCase(2.9)]
+    public void SupportedVersionRangeIsAccepted(double version)
+    {
+        Assert.That(XmlConnectionsDeserializer.IsSupportedConfVersion(version), Is.True);
+    }
+
+    [Test]
+    public void FutureVersionsAreRejected()
+    {
+        Assert.That(XmlConnectionsDeserializer.IsSupportedConfVersion(3.0), Is.False);
+    }
+
     private XmlConnectionsDeserializer _xmlConnectionsDeserializer;
     private ConnectionTreeModel _connectionTreeModel;
 
