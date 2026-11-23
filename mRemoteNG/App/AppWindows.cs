@@ -506,6 +506,10 @@ namespace mRemoteNG.App
                         if (UpdateForm == null || UpdateForm.IsDisposed)
                             UpdateForm = new UpdateWindow();
                         UpdateForm.Show(dockPanel);
+                        // The window only fills in its version/status fields after a check.
+                        // Without this it opened at startup with designer placeholders like
+                        // "Current Version" instead of the real versions/changelog.
+                        _ = UpdateForm.PerformUpdateCheckAsync();
                         break;
                     case WindowType.ExternalApps:
                         if (_externalappsForm == null || _externalappsForm.IsDisposed)
