@@ -46,12 +46,31 @@ internal sealed class SecureTransferService : IDisposable
             // DoubleQuote, which does not neutralize $(...) / backticks - the same bug the main
             // application already fixed in Tools/SecureTransfer.cs.
             ScpClient = new ScpClient(_host, _port, _user, _password, RemotePathTransformation.ShellQuote);
+            TrustHostKey(ScpClient);
             ScpClient.Connect();
             return;
         }
 
         SftpClient = new SftpClient(_host, _port, _user, _password);
+        TrustHostKey(SftpClient);
         SftpClient.Connect();
+    }
+
+    /// <summary>
+    /// Reject an unrecognised or changed host key. SSH.NET would otherwise accept any key,
+    /// allowing a MITM to capture the credentials and the transferred file.
+    /// </summary>
+    private void TrustHostKey(Renci.SshNet.BaseClient client)
+    {
+        client.HostKeyReceived += (_, args) =>
+        {
+            KnownHostsStore.TrustResult result =
+                KnownHostsStore.CheckOrRemember(_host, _port, args.FingerPrintSHA256 ?? string.Empty);
+            args.CanTrust = result != KnownHostsStore.TrustResult.Changed;
+            if (result == KnownHostsStore.TrustResult.Changed)
+                throw new InvalidOperationException(
+                    $"The SSH host key for {_host}:{_port} has changed. Refusing to connect.");
+        };
     }
 
     public void Disconnect()

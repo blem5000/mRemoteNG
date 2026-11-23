@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mRemoteNG.Plugins.PortScan.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mRemoteNG.Plugins.MultiAddress.Tests", "mRemoteNG.Plugins.MultiAddress.Tests\mRemoteNG.Plugins.MultiAddress.Tests.csproj", "{660A4FD6-0DF5-40B8-9F22-AE383844C588}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mRemoteNG.Plugins.SshTransfer.Tests", "mRemoteNG.Plugins.SshTransfer.Tests\mRemoteNG.Plugins.SshTransfer.Tests.csproj", "{35CE1999-D6B3-439C-B5ED-AE179A7BD369}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|arm64 = Debug|arm64
@@ -201,6 +203,30 @@ Global
 		{660A4FD6-0DF5-40B8-9F22-AE383844C588}.Release|Any CPU.Build.0 = Release|x64
 		{660A4FD6-0DF5-40B8-9F22-AE383844C588}.Release|x86.ActiveCfg = Release|x64
 		{660A4FD6-0DF5-40B8-9F22-AE383844C588}.Release|x86.Build.0 = Release|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|arm64.ActiveCfg = Debug|arm64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|arm64.Build.0 = Debug|arm64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|x64.ActiveCfg = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|x64.Build.0 = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|Any CPU.Build.0 = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|x86.ActiveCfg = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Debug|x86.Build.0 = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|arm64.ActiveCfg = Debug|arm64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|arm64.Build.0 = Debug|arm64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|x64.ActiveCfg = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|x64.Build.0 = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|Any CPU.ActiveCfg = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|Any CPU.Build.0 = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|x86.ActiveCfg = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release Self-Contained|x86.Build.0 = Debug|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|arm64.ActiveCfg = Release|arm64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|arm64.Build.0 = Release|arm64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|x64.ActiveCfg = Release|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|x64.Build.0 = Release|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|Any CPU.ActiveCfg = Release|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|Any CPU.Build.0 = Release|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|x86.ActiveCfg = Release|x64
+		{35CE1999-D6B3-439C-B5ED-AE179A7BD369}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

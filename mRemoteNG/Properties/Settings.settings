@@ -623,6 +623,9 @@
     <Setting Name="PluginPanelAssignments" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="RequireSignedPlugins" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="ConDefaultColor" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>

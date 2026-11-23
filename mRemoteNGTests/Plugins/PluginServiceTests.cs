@@ -27,6 +27,9 @@ public class PluginServiceTests
         CompatibleConnectionPlugin.InitializeCount = 0;
         Settings.Default.DisabledPlugins = string.Empty;
         Settings.Default.PluginFolderPath = string.Empty;
+        // Tests use the unsigned test assembly as a fake plugin; signature checks are covered
+        // separately by AuthenticodeThumbprintTests.
+        Settings.Default.RequireSignedPlugins = false;
         Settings.Default.PluginPanelAssignments = string.Empty;
     }
 
@@ -38,6 +41,27 @@ public class PluginServiceTests
         bool isCompatible = PluginCompatibility.IsCompatible(plugin, new Version(1, 0, 0));
 
         Assert.That(isCompatible, Is.True);
+    }
+
+    [Test]
+    public void DiscoverPlugins_RejectsUnsignedAssemblyWhenSigningRequired()
+    {
+        Settings.Default.RequireSignedPlugins = true;
+        try
+        {
+            PluginService service = new();
+            IPluginContext context = Substitute.For<IPluginContext>();
+
+            var plugins = service.DiscoverPlugins(Assembly.GetExecutingAssembly(), context, new Version(1, 0, 0));
+
+            Assert.That(plugins, Is.Empty, "An unsigned plugin assembly must not be loaded");
+            Assert.That(CompatibleToolWindowPlugin.InitializeCount, Is.Zero,
+                        "An unsigned plugin's Initialize() must never run");
+        }
+        finally
+        {
+            Settings.Default.RequireSignedPlugins = false;
+        }
     }
 
     [Test]

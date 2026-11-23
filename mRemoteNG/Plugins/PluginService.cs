@@ -13,6 +13,7 @@ using mRemoteNG.PluginContracts;
 using mRemoteNG.UI.Forms;
 using mRemoteNG.UI.Panels;
 using mRemoteNG.UI.Window;
+using mRemoteNG.Tools;
 using WeifenLuo.WinFormsUI.Docking;
 
 namespace mRemoteNG.Plugins;
@@ -224,6 +225,30 @@ public sealed class PluginService
         _plugins.Sort(ComparePlugins);
     }
 
+    private static bool IsSignedByReleaseCertificate(string path)
+    {
+        try
+        {
+            // PORTABLE builds compile without Authenticode; there is no WinVerifyTrust-based check
+            // available there, so treat the assembly as unsigned rather than letting it through.
+#if PORTABLE
+            return false;
+#else
+            Authenticode authenticode = new(path)
+            {
+                ThumbprintToMatch = App.Update.ForkUpdateChannel.ReleaseSigningThumbprint
+            };
+            return authenticode.VerifyThumbprintOnly() == Authenticode.StatusValue.Verified;
+#endif
+        }
+        catch (Exception ex)
+        {
+            App.Runtime.MessageCollector?.AddExceptionMessage(
+                $"Could not verify plugin signature '{path}'.", ex);
+            return false;
+        }
+    }
+
     public IReadOnlyCollection<IPlugin> DiscoverPlugins(Assembly assembly, IPluginContext pluginContext, Version hostVersion)
     {
         ArgumentNullException.ThrowIfNull(assembly);
@@ -232,11 +257,26 @@ public sealed class PluginService
 
         List<IPlugin> plugins = [];
         IEnumerable<Type> candidateTypes = GetLoadableTypes(assembly);
+        bool signatureVerified = false;
         foreach (Type type in candidateTypes)
         {
             if (type.IsAbstract || !typeof(IPlugin).IsAssignableFrom(type))
             {
                 continue;
+            }
+
+            // Only assemblies that actually contain a plugin are held to the signing requirement.
+            // Framework DLLs that happen to pass MayBePlugin() have no IPlugin types and load
+            // untouched; our own code (mRemoteNG.dll) has none either.
+            if (!signatureVerified)
+            {
+                if (Properties.Settings.Default.RequireSignedPlugins && !IsSignedByReleaseCertificate(assembly.Location))
+                {
+                    App.Runtime.MessageCollector.AddMessage(Messages.MessageClass.WarningMsg,
+                        $"Skipping unsigned plugin assembly '{assembly.Location}'.", true);
+                    return plugins;
+                }
+                signatureVerified = true;
             }
 
             try
